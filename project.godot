@@ -12,7 +12,7 @@ config_version=5
 
 config/name="exml25"
 run/main_scene="uid://bgksv1qngmvud"
-config/features=PackedStringArray("4.4", "Forward Plus")
+config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
 [input]
@@ -49,3 +49,11 @@ ui_down={
 , Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":83,"key_label":0,"unicode":115,"location":0,"echo":false,"script":null)
 ]
 }
+steer_right={
+"deadzone": 0.2,
+"events": []
+}
+
+[rendering]
+
+textures/canvas_textures/default_texture_filter=0

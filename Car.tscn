@@ -1,16 +1,24 @@
 [gd_scene load_steps=4 format=3 uid="uid://bqmdw6n7m3spv"]
 
-[ext_resource type="Script" uid="uid://coxnoco2qau0x" path="res://car.gd" id="1_y2uan"]
-[ext_resource type="Texture2D" uid="uid://davohx4canjd5" path="res://tile_0183.png" id="2_gvgjh"]
+[ext_resource type="Script" uid="uid://dks3ttxv5007c" path="res://car2.gd" id="1_y2uan"]
+[ext_resource type="Texture2D" uid="uid://buecxg36r6ch8" path="res://image-removebg-preview (5).png" id="2_y2uan"]
 
-[sub_resource type="RectangleShape2D" id="RectangleShape2D_w13o2"]
-size = Vector2(16, 16)
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_y2uan"]
+radius = 48.5
+height = 150.0195
 
 [node name="car_root" type="CharacterBody2D"]
 script = ExtResource("1_y2uan")
 
 [node name="Sprite2D" type="Sprite2D" parent="."]
-texture = ExtResource("2_gvgjh")
+position = Vector2(-9.536743e-07, -1.8189894e-12)
+rotation = 1.5662143
+scale = Vector2(0.538, 0.538)
+texture = ExtResource("2_y2uan")
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="."]
-shape = SubResource("RectangleShape2D_w13o2")
+position = Vector2(1, 3)
+rotation = 1.5732925
+shape = SubResource("CapsuleShape2D_y2uan")
+
+[node name="Camera2D" type="Camera2D" parent="."]
