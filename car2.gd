@@ -19,6 +19,9 @@ var bezier_cp2y = 1.0
 var accel_amount = 800.0
 var throttle: float = 0.0
 var speed_print_timer: float = 0.0
+var mass: float = 800.0
+var collision_rebound: float = 10.0
+var collision_layer_mask: int = 1
 
 func _cubic_bezier_y(u):
 	var t = clamp(u, 0.0, 1.0)
@@ -56,6 +59,27 @@ func _physics_process(delta: float) -> void:
 		speed_print_timer -= 1.0
 
 	move_and_slide()
+
+	var sc = get_slide_collision_count()
+	for i in range(sc):
+		var col = get_slide_collision(i)
+		var collider = col.get_collider()
+		if collider:
+			if collider.has_method("get_collision_layer"):
+				var layer = int(collider.get_collision_layer())
+				if (layer & collision_layer_mask) == 0:
+					continue
+		var n = col.get_normal()
+		var impact = -velocity.dot(n)
+		if impact > 0.0:
+			var energy = 0.5 * mass * impact * impact
+			var impulse = 0.0
+			if impact > 0.0:
+				impulse = energy / impact
+			var delta_v = 0.0
+			if mass > 0.0:
+				delta_v = impulse / mass
+			velocity += delta_v * collision_rebound * n
 
 func app_fric():
 	if velocity.length() < 0.1 and throttle == 0.0:
