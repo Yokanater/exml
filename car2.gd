@@ -19,8 +19,9 @@ var bezier_cp2y = 1.0
 var accel_amount = 800.0
 var throttle: float = 0.0
 var speed_print_timer: float = 0.0
+var forward_block_timer: float = 0.0
 var mass: float = 800.0
-var collision_rebound: float = 10.0
+var collision_rebound: float = 0.75
 var collision_layer_mask: int = 1
 
 func _cubic_bezier_y(u):
@@ -30,6 +31,7 @@ func _cubic_bezier_y(u):
 
 func _physics_process(delta: float) -> void:
 	acc = Vector2.ZERO
+	forward_block_timer = max(forward_block_timer - delta, 0.0)
 	get_input()
 
 	var accel_pressed = throttle > 0.0
@@ -55,8 +57,11 @@ func _physics_process(delta: float) -> void:
 
 	speed_print_timer += delta
 	if speed_print_timer >= 1.0:
-		print("speed:", velocity.length())
+		var signed_speed = velocity.dot(transform.x.normalized())
+		print("velocity:", signed_speed)
 		speed_print_timer -= 1.0
+
+	var incoming_vel = velocity
 
 	move_and_slide()
 
@@ -70,16 +75,26 @@ func _physics_process(delta: float) -> void:
 				if (layer & collision_layer_mask) == 0:
 					continue
 		var n = col.get_normal()
-		var impact = -velocity.dot(n)
+		var steer_factor = 0.0
+		if max_steering_angle != 0.0:
+			steer_factor = clamp(abs(steer_dirn) / max_steering_angle, 0.0, 1.0)
+		var adjusted = n.rotated(steer_dirn)
+		var blended_n = n.lerp(adjusted, steer_factor).normalized()
+		var impact = -incoming_vel.dot(blended_n)
 		if impact > 0.0:
-			var energy = 0.5 * mass * impact * impact
-			var impulse = 0.0
-			if impact > 0.0:
-				impulse = energy / impact
-			var delta_v = 0.0
-			if mass > 0.0:
-				delta_v = impulse / mass
-			velocity += delta_v * collision_rebound * n
+			var recoil_speed = impact * collision_rebound
+			velocity = Vector2.ZERO
+			var recoil_dir = Vector2.ZERO
+			if incoming_vel.length() > 0.001:
+				recoil_dir = -incoming_vel.normalized()
+			else:
+				recoil_dir = blended_n
+			var forward_dir = transform.x.normalized()
+			if recoil_dir.dot(forward_dir) > 0.0:
+				recoil_dir = -recoil_dir
+			velocity = recoil_dir * recoil_speed
+			forward_block_timer = 1.0
+			break
 
 func app_fric():
 	if velocity.length() < 0.1 and throttle == 0.0:
@@ -104,8 +119,9 @@ func get_input():
 	steer_dirn = turn * dynamic_steering
 
 	throttle = 0.0
-	if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
-		throttle += 1.0
+	if forward_block_timer <= 0.0:
+		if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
+			throttle += 1.0
 	if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
 		throttle -= 1.0
 
