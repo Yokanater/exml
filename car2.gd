@@ -20,6 +20,14 @@ var accel_amount = 800.0
 var throttle: float = 0.0
 var speed_print_timer: float = 0.0
 var forward_block_timer: float = 0.0
+var reverse_hold_required: float = 0.1
+var reverse_hold_timer: float = 0.0
+var reverse_max_speed: float = 200.0
+var reverse_accel_duration: float = 1.0
+var reverse_accel_time: float = 0.0
+var reverse_accel_strength: float = 800.0
+var braking_multiplier: float = 5.0
+var braking_active: bool = false
 var mass: float = 800.0
 var collision_rebound: float = 0.75
 var collision_layer_mask: int = 1
@@ -32,34 +40,55 @@ func _cubic_bezier_y(u):
 func _physics_process(delta: float) -> void:
 	acc = Vector2.ZERO
 	forward_block_timer = max(forward_block_timer - delta, 0.0)
-	get_input()
+	get_input(delta)
 
-	var accel_pressed = abs(throttle) > 0.0
-
-
-	if accel_pressed:
+	if throttle > 0.0:
 		accel_time = min(accel_time + delta, accel_duration)
 	else:
 		accel_time = max(accel_time - delta, 0.0)
+
+	if throttle < 0.0:
+		reverse_accel_time = min(reverse_accel_time + delta, reverse_accel_duration)
+	else:
+		reverse_accel_time = max(reverse_accel_time - delta, 0.0)
 
 	var progress = accel_time / accel_duration
 	var bez = _cubic_bezier_y(progress)
 
 	var accel_multiplier = accel_target_kmph / base_speed_kmph
-	var speed_multiplier = 1.0 + (accel_multiplier - 1.0) * bez
+	var _speed_multiplier = 1.0 + (accel_multiplier - 1.0) * bez
 
-	if throttle != 0.0:
+	if throttle > 0.0:
 		acc += transform.x * accel_amount * bez * throttle
+	elif throttle < 0.0:
+		var rev_progress = reverse_accel_time / reverse_accel_duration
+		var rev_bez = _cubic_bezier_y(rev_progress)
+		acc += transform.x * (-reverse_accel_strength) * rev_bez
 
 	app_fric()
 	calculate_steering(delta)
 
 	velocity += acc * delta
+	var forward_vec = transform.x.normalized()
+	var signed_speed = velocity.dot(forward_vec)
+	var lateral = velocity - forward_vec * signed_speed
+	if throttle < 0.0 and reverse_accel_time > 0.0:
+		var rev_progress = reverse_accel_time / reverse_accel_duration
+		var rev_target = -reverse_max_speed * _cubic_bezier_y(rev_progress)
+		var rev_rate = reverse_max_speed / reverse_accel_duration
+		var ds = rev_target - signed_speed
+		var step = clamp(ds, -rev_rate * delta, rev_rate * delta)
+		signed_speed += step
+		velocity = forward_vec * signed_speed + lateral
+	else:
+		if signed_speed < -reverse_max_speed:
+			signed_speed = -reverse_max_speed
+			velocity = forward_vec * signed_speed + lateral
 
 	speed_print_timer += delta
 	if speed_print_timer >= 1.0:
-		var signed_speed = velocity.dot(transform.x.normalized())
-		print("velocity:", signed_speed)
+		var print_signed_speed = velocity.dot(transform.x.normalized())
+		print("velocity:", print_signed_speed)
 		speed_print_timer -= 1.0
 
 	var incoming_vel = velocity
@@ -103,9 +132,16 @@ func app_fric():
 		return
 	var fric_force = velocity * fric
 	var drag_force = velocity * velocity.length() * drag
-	acc += drag_force + fric_force
+	if braking_active:
+		acc += drag_force + fric_force * braking_multiplier
+		var forward_vec = transform.x.normalized()
+		var signed = velocity.dot(forward_vec)
+		if signed > 0.0 and signed < 0.5:
+			velocity = forward_vec * 0.0 + (velocity - forward_vec * signed)
+	else:
+		acc += drag_force + fric_force
 
-func get_input():
+func get_input(delta: float):
 	var turn = 0
 	if Input.is_action_pressed("ui_right"):
 		turn += 1
@@ -130,7 +166,20 @@ func get_input():
 	if forward_block_timer <= 0.0:
 		if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
 			throttle += 1.0
+
 	if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
+		reverse_hold_timer += delta
+		var fwd_signed = velocity.dot(transform.x.normalized())
+		if fwd_signed > 0.0:
+			braking_active = true
+		else:
+			braking_active = false
+	else:
+		reverse_hold_timer = 0.0
+		braking_active = false
+
+	var input_signed_speed = velocity.dot(transform.x.normalized())
+	if reverse_hold_timer >= reverse_hold_required and input_signed_speed <= 0.0:
 		throttle -= 1.0
 	if throttle <0: 
 		steering_sensitivity *=1.2
