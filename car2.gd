@@ -34,7 +34,8 @@ func _physics_process(delta: float) -> void:
 	forward_block_timer = max(forward_block_timer - delta, 0.0)
 	get_input()
 
-	var accel_pressed = throttle > 0.0
+	var accel_pressed = abs(throttle) > 0.0
+
 
 	if accel_pressed:
 		accel_time = min(accel_time + delta, accel_duration)
@@ -113,9 +114,16 @@ func get_input():
 
 	var speed = velocity.length()
 
-	var speed_factor = clamp(1.0 / (1.0 + (speed / 200.0)), 0.1, 1.0)
+	var normalized_speed = clamp(speed / 300.0, 0.0, 1.0)
 
-	var dynamic_steering = max_steering_angle * speed_factor
+	#var steering_sensitivity = 1.0 - pow(normalized_speed,1.05)
+	var steering_sensitivity = 1.0 - pow(normalized_speed,1.05)
+	var ss = max(steering_sensitivity, 0.05)
+
+	#var dynamic_steering = max_steering_angle * steering_sensitivity
+	var dynamic_steering = max_steering_angle * ss
+
+
 	steer_dirn = turn * dynamic_steering
 
 	throttle = 0.0
@@ -124,6 +132,8 @@ func get_input():
 			throttle += 1.0
 	if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
 		throttle -= 1.0
+	if throttle <0: 
+		steering_sensitivity *=1.2
 
 func calculate_steering(delta: float) -> void:
 	var rw = position - transform.x * (wheelbase / 2.0)
