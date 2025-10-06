@@ -1,10 +1,18 @@
 extends CharacterBody2D
 class_name Car
 
+#the hbs 
+var fwme = true
+
 #uhhhhhh stuff to cooperate w foreign / other files idk :clownw
 var current_lap: int = 0
 var total_laps: int = 0;
 var car_id: int = 0;
+
+@export var max_health: float = 100.0
+@export var apf: float = 0.6 #agressor penalty factor <3
+@export var dmg_cap: float = 25.0
+var current_health: float = 0
 
 var wheelbase: float = 170.0
 var max_steering_angle: float = deg_to_rad(120.0)
@@ -102,7 +110,8 @@ func _physics_process(delta: float) -> void:
 		var print_signed_speed = velocity.dot(transform.x.normalized())
 		var steer_deg: float = rad_to_deg(steer_dirn)
 		var facing_deg: float = rad_to_deg(rotation)
-		print("relative_pos:", _format_vec2(rel), " velocity:", print_signed_speed, " steer_deg:", steer_deg, " facing_deg:", facing_deg)
+		if fwme:
+			print("relative_pos:", _format_vec2(rel), " velocity:", print_signed_speed, " steer_deg:", steer_deg, " facing_deg:", facing_deg)
 		speed_print_timer -= 1.0
 
 	_update_boost_timers(delta)
@@ -128,6 +137,9 @@ func _physics_process(delta: float) -> void:
 		var blended_n = n.lerp(adjusted, steer_factor).normalized()
 		var impact = -incoming_vel.dot(blended_n)
 		if impact > 0.0:
+			var damage = calculate_collision_damage(impact, collider)
+			take_damage(damage)
+			
 			var recoil_speed = impact * collision_rebound
 			velocity = Vector2.ZERO
 			var recoil_dir = Vector2.ZERO
@@ -285,6 +297,7 @@ func set_origin_node(node: Node2D) -> void:
 func _format_vec2(v: Vector2) -> String:
 	return "(" + str(round(v.x * 100) / 100.0) + ", " + str(round(v.y * 100) / 100.0) + ")"
 func _ready() -> void:
+	current_health = max_health
 	origin_pos = _compute_map_center()
 	
 	if origin_node_path != NodePath(""):
@@ -378,3 +391,26 @@ func get_coords_x_relative_to_origin() -> float:
 
 func get_coords_y_relative_to_origin() -> float:
 	return get_coords_relative_to_origin().y
+	
+func calculate_collision_damage(impact_force: float, collider) -> float:
+	var base_damage = (impact_force / 500.0) * 10.0
+	
+	if collider is CharacterBody2D:
+		return base_damage * apf
+	else:
+		return base_damage
+
+	return clamp(base_damage, 1.0, dmg_cap)
+
+func take_damage(amount: float) -> void:
+	current_health -= amount
+	current_health = max(current_health, 0.0)
+	
+	print("Car [", car_id, "] took ", round(amount), " damage. Health: ", round(current_health), "/", max_health)
+	
+	if current_health <= 0.0:
+		car_destroyed()
+
+func car_destroyed() -> void:
+	print("Car [", car_id, "] has been destroyed!")
+	queue_free()  

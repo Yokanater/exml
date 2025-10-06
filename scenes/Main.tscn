@@ -5702,6 +5702,7 @@ layer_0/tile_data = PackedInt32Array(1048648, 0, 1610612736, 1048649, 0, 1610612
 [node name="car_root" parent="." instance=ExtResource("7_mwfav")]
 z_index = 1
 position = Vector2(947, -28)
+max_health = 10.0
 
 [node name="finishline" type="Area2D" parent="." node_paths=PackedStringArray("checkpoints")]
 script = ExtResource("8_3p2gp")
