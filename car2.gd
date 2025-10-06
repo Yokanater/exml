@@ -26,7 +26,7 @@ var reverse_max_speed: float = 200.0
 var reverse_accel_duration: float = 1.0
 var reverse_accel_time: float = 0.0
 var reverse_accel_strength: float = 800.0
-var braking_multiplier: float = 5.0
+var braking_multiplier: float = 2.0
 var braking_active: bool = false
 var mass: float = 800.0
 var collision_rebound: float = 0.75
@@ -94,12 +94,14 @@ func _physics_process(delta: float) -> void:
 		var rel: Vector2 = get_coords_relative_to_origin()
 		var vel_vec: Vector2 = velocity
 		var print_signed_speed = velocity.dot(transform.x.normalized())
-		print("relative_pos:", _format_vec2(rel), " velocity:", print_signed_speed)
+		var steer_deg: float = rad_to_deg(steer_dirn)
+		var facing_deg: float = rad_to_deg(rotation)
+		print("relative_pos:", _format_vec2(rel), " velocity:", print_signed_speed, " steer_deg:", steer_deg, " facing_deg:", facing_deg)
 		speed_print_timer -= 1.0
 
-	var incoming_vel = velocity
-
 	_update_boost_timers(delta)
+
+	var incoming_vel = velocity
 
 	move_and_slide()
 
