@@ -19,7 +19,7 @@ var bezier_cp2y: float = 1.0
 var accel_amount: float = 800.0
 var throttle: float = 0.0
 var speed_print_timer: float = 0.0
-var forward_block_timer: float = 0.0
+var forward_block_timer:  	 = 0.0
 var reverse_hold_required: float = 0.1
 var reverse_hold_timer: float = 0.0
 var reverse_max_speed: float = 200.0
@@ -93,7 +93,8 @@ func _physics_process(delta: float) -> void:
 		var wp: Vector2 = get_world_coords()
 		var rel: Vector2 = get_coords_relative_to_origin()
 		var vel_vec: Vector2 = velocity
-		print("relative_pos:", _format_vec2(rel), " speed:", str(round(velocity.length() * 100) / 100.0))
+		var print_signed_speed = velocity.dot(transform.x.normalized())
+		print("relative_pos:", _format_vec2(rel), " velocity:", print_signed_speed)
 		speed_print_timer -= 1.0
 
 	var incoming_vel = velocity
@@ -276,20 +277,65 @@ func set_origin_node(node: Node2D) -> void:
 func _format_vec2(v: Vector2) -> String:
 	return "(" + str(round(v.x * 100) / 100.0) + ", " + str(round(v.y * 100) / 100.0) + ")"
 func _ready() -> void:
+	origin_pos = _compute_map_center()
+	
 	if origin_node_path != NodePath(""):
 		var n := get_node_or_null(origin_node_path)
 		if n and n is Node2D:
-			origin_pos = (n as Node2D).global_position
-			return
-	origin_pos = _compute_map_center()
-
+			if n is TileMap:
+				origin_pos = _compute_tilemap_center(n as TileMap)
+			else:
+				origin_pos = (n as Node2D).global_position
+func _compute_tilemap_center(tilemap: TileMap) -> Vector2:
+	var used_cells := tilemap.get_used_cells(0)  # Layer 0
+	
+	if used_cells.size() > 0:
+		var min_x := used_cells[0].x
+		var max_x := used_cells[0].x
+		var min_y := used_cells[0].y
+		var max_y := used_cells[0].y
+		
+		for cell in used_cells:
+			min_x = min(min_x, cell.x)
+			max_x = max(max_x, cell.x)
+			min_y = min(min_y, cell.y)
+			max_y = max(max_y, cell.y)
+		
+		var center_tile := Vector2((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
+		return tilemap.to_global(tilemap.map_to_local(center_tile))
+	
+	return tilemap.global_position
 func _compute_map_center() -> Vector2:
+	var ground_tilemap := get_tree().current_scene.find_child("Ground", true, false)
+	if ground_tilemap and ground_tilemap is TileMap:
+		var tilemap := ground_tilemap as TileMap
+		var used_cells := tilemap.get_used_cells(0)  # Layer 0
+		
+		if used_cells.size() > 0:
+			var min_x := used_cells[0].x
+			var max_x := used_cells[0].x
+			var min_y := used_cells[0].y
+			var max_y := used_cells[0].y
+			
+			for cell in used_cells:
+				min_x = min(min_x, cell.x)
+				max_x = max(max_x, cell.x)
+				min_y = min(min_y, cell.y)
+				max_y = max(max_y, cell.y)
+			
+			# Calculate center in tile coordinates
+			var center_tile := Vector2((min_x + max_x) / 2.0, (min_y + max_y) / 2.0)
+			
+			# Convert to global position
+			return tilemap.to_global(tilemap.map_to_local(center_tile))
+	
+	# Fallback to Track sprite if Ground not found
 	var track_node := get_tree().current_scene.find_child("Track", true, false)
 	if track_node and track_node is Sprite2D:
 		var spr := track_node as Sprite2D
 		return spr.global_position + spr.offset
 	
-	# fallback
+	# Final fallback
 	return Vector2.ZERO
 func _find_tilemap(node: Node) -> TileMap:
 	if node is TileMap:
