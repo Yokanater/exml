@@ -5687,9 +5687,9 @@ format = 2
 [node name="car_root" parent="." instance=ExtResource("3_fos0i")]
 z_index = 1
 position = Vector2(1000, -33)
+origin_node_path = NodePath("../Track")
 
 [node name="Hungaroring" type="Sprite2D" parent="."]
-visible = false
 position = Vector2(815, -1415)
 scale = Vector2(4.7229013, 4.7229013)
 texture = ExtResource("4_cm0pq")

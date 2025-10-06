@@ -3,6 +3,7 @@ extends CharacterBody2D
 var max_speed = 200
 var acceleration = 500
 var friction = 400
+var speed_print_timer: float = 0.0
 
 func _physics_process(delta):
 	var input_dir = Vector2.ZERO

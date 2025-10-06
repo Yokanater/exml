@@ -32,6 +32,8 @@ var mass: float = 800.0
 var collision_rebound: float = 0.75
 var collision_rebound_layer_mask: int = 1
 var collision_layer_mask: int = 1
+@export var origin_node_path: NodePath = NodePath("")
+var origin_pos: Vector2 = Vector2.ZERO
 
 func _cubic_bezier_y(u: float) -> float:
 	var t = clamp(u, 0.0, 1.0)
@@ -88,8 +90,10 @@ func _physics_process(delta: float) -> void:
 
 	speed_print_timer += delta
 	if speed_print_timer >= 1.0:
-		var print_signed_speed = velocity.dot(transform.x.normalized())
-		print("velocity:", print_signed_speed)
+		var wp: Vector2 = get_world_coords()
+		var rel: Vector2 = get_coords_relative_to_origin()
+		var vel_vec: Vector2 = velocity
+		print("relative_pos:", _format_vec2(rel), " speed:", str(round(velocity.length() * 100) / 100.0))
 		speed_print_timer -= 1.0
 
 	var incoming_vel = velocity
@@ -257,3 +261,66 @@ func _end_boost(early_release: bool) -> void:
 		boost_cooldown_timer += boost_early_release_penalty
 	boost_timer = 0.0
 	boost_pre_speed = 0.0
+
+
+
+func set_origin_pos(p: Vector2) -> void:
+	origin_node_path = NodePath("")
+	origin_pos = p
+
+func set_origin_node(node: Node2D) -> void:
+	if node:
+		origin_node_path = node.get_path()
+
+
+func _format_vec2(v: Vector2) -> String:
+	return "(" + str(round(v.x * 100) / 100.0) + ", " + str(round(v.y * 100) / 100.0) + ")"
+func _ready() -> void:
+	if origin_node_path != NodePath(""):
+		var n := get_node_or_null(origin_node_path)
+		if n and n is Node2D:
+			origin_pos = (n as Node2D).global_position
+			return
+	origin_pos = _compute_map_center()
+
+func _compute_map_center() -> Vector2:
+	var track_node := get_tree().current_scene.find_child("Track", true, false)
+	if track_node and track_node is Sprite2D:
+		var spr := track_node as Sprite2D
+		return spr.global_position + spr.offset
+	
+	# fallback
+	return Vector2.ZERO
+func _find_tilemap(node: Node) -> TileMap:
+	if node is TileMap:
+		return node
+	for child in node.get_children():
+		var res := _find_tilemap(child)
+		if res:
+			return res
+	return null
+
+func _gather_node2d_positions(node: Node, arr: Array) -> void:
+	for child in node.get_children():
+		if child is Node2D:
+			arr.append((child as Node2D).global_position)
+		_gather_node2d_positions(child, arr)
+
+func _get_origin_position() -> Vector2:
+	if origin_node_path != NodePath(""):
+		var n := get_node_or_null(origin_node_path)
+		if n and n is Node2D:
+			return (n as Node2D).global_position
+	return origin_pos
+
+func get_world_coords() -> Vector2:
+	return global_position
+
+func get_coords_relative_to_origin() -> Vector2:
+	return global_position - _get_origin_position()
+
+func get_coords_x_relative_to_origin() -> float:
+	return get_coords_relative_to_origin().x
+
+func get_coords_y_relative_to_origin() -> float:
+	return get_coords_relative_to_origin().y
