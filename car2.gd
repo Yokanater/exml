@@ -3,20 +3,20 @@ extends CharacterBody2D
 var wheelbase: float = 170.0
 var max_steering_angle: float = deg_to_rad(120.0)
 var steer_dirn: float = 0.0
-var acc = Vector2.ZERO
-var fric = -0.98
-var drag = -0.001
-var braking = -450
-var maxrspeed = 250
+var acc: Vector2 = Vector2.ZERO
+var fric: float = -0.98
+var drag: float = -0.001
+var braking: float = -450
+var maxrspeed: float = 250
 
 var base_max_speed = 200
-var accel_time = 0.0
-var accel_duration = 8.0
-var accel_target_kmph = 370.0
-var base_speed_kmph = 50.0
-var bezier_cp1y = 0.0
-var bezier_cp2y = 1.0
-var accel_amount = 800.0
+var accel_time: float = 0.0
+var accel_duration: float = 8.0
+var accel_target_kmph: float = 370.0
+var base_speed_kmph: float = 50.0
+var bezier_cp1y: float = 0.0
+var bezier_cp2y: float = 1.0
+var accel_amount: float = 800.0
 var throttle: float = 0.0
 var speed_print_timer: float = 0.0
 var forward_block_timer: float = 0.0
@@ -30,9 +30,10 @@ var braking_multiplier: float = 5.0
 var braking_active: bool = false
 var mass: float = 800.0
 var collision_rebound: float = 0.75
+var collision_rebound_layer_mask: int = 1
 var collision_layer_mask: int = 1
 
-func _cubic_bezier_y(u):
+func _cubic_bezier_y(u: float) -> float:
 	var t = clamp(u, 0.0, 1.0)
 	var inv = 1.0 - t
 	return 3.0 * inv * inv * t * bezier_cp1y + 3.0 * inv * t * t * bezier_cp2y + t * t * t
@@ -65,7 +66,7 @@ func _physics_process(delta: float) -> void:
 		var rev_bez = _cubic_bezier_y(rev_progress)
 		acc += transform.x * (-reverse_accel_strength) * rev_bez
 
-	app_fric()
+	app_fric(delta)
 	calculate_steering(delta)
 
 	velocity += acc * delta
@@ -92,6 +93,8 @@ func _physics_process(delta: float) -> void:
 		speed_print_timer -= 1.0
 
 	var incoming_vel = velocity
+
+	_update_boost_timers(delta)
 
 	move_and_slide()
 
@@ -126,22 +129,22 @@ func _physics_process(delta: float) -> void:
 			forward_block_timer = 1.0
 			break
 
-func app_fric():
-	if velocity.length() < 0.1 and throttle == 0.0:
+func app_fric(_delta: float) -> void:
+	if velocity.length() < 0.1 and throttle == 0.0 and not boost_active:
 		velocity = Vector2.ZERO
 		return
 	var fric_force = velocity * fric
 	var drag_force = velocity * velocity.length() * drag
 	if braking_active:
-		acc += drag_force + fric_force * braking_multiplier
 		var forward_vec = transform.x.normalized()
+		acc += drag_force + fric_force * braking_multiplier
 		var signed = velocity.dot(forward_vec)
 		if signed > 0.0 and signed < 0.5:
 			velocity = forward_vec * 0.0 + (velocity - forward_vec * signed)
 	else:
 		acc += drag_force + fric_force
 
-func get_input(delta: float):
+func get_input(delta: float) -> void:
 	var turn = 0
 	if Input.is_action_pressed("ui_right"):
 		turn += 1
@@ -149,25 +152,19 @@ func get_input(delta: float):
 		turn -= 1
 
 	var speed = velocity.length()
-
 	var normalized_speed = clamp(speed / 300.0, 0.0, 1.0)
-
-	#var steering_sensitivity = 1.0 - pow(normalized_speed,1.05)
-	var steering_sensitivity = 1.0 - pow(normalized_speed,1.05)
+	var steering_sensitivity = 1.0 - pow(normalized_speed, 1.05)
 	var ss = max(steering_sensitivity, 0.05)
-
-	#var dynamic_steering = max_steering_angle * steering_sensitivity
 	var dynamic_steering = max_steering_angle * ss
-
 
 	steer_dirn = turn * dynamic_steering
 
 	throttle = 0.0
 	if forward_block_timer <= 0.0:
-		if Input.is_action_pressed("ui_up") or Input.is_key_pressed(KEY_UP) or Input.is_key_pressed(KEY_W):
+		if Input.is_action_pressed("ui_up"):
 			throttle += 1.0
 
-	if Input.is_action_pressed("ui_down") or Input.is_key_pressed(KEY_DOWN) or Input.is_key_pressed(KEY_S):
+	if Input.is_action_pressed("ui_down"):
 		reverse_hold_timer += delta
 		var fwd_signed = velocity.dot(transform.x.normalized())
 		if fwd_signed > 0.0:
@@ -181,8 +178,9 @@ func get_input(delta: float):
 	var input_signed_speed = velocity.dot(transform.x.normalized())
 	if reverse_hold_timer >= reverse_hold_required and input_signed_speed <= 0.0:
 		throttle -= 1.0
-	if throttle <0: 
-		steering_sensitivity *=1.2
+		steer_dirn = steer_dirn * 1.05
+
+	_handle_boost_input_start()
 
 func calculate_steering(delta: float) -> void:
 	var rw = position - transform.x * (wheelbase / 2.0)
@@ -203,3 +201,59 @@ func calculate_steering(delta: float) -> void:
 		velocity = new_dirn * velocity.length()
 
 	rotation = new_dirn.angle()
+
+# ---- BOOST SYSTEM ----
+var boost_input_lag: float = 0.5
+var boost_duration: float = boost_input_lag * 10.0
+var boost_cooldown_base: float = 10.0
+var boost_strength_factor: float = 0.5
+var boost_active: bool = false
+var boost_available: bool = true
+var boost_timer: float = 0.0
+var boost_cooldown_timer: float = 0.0
+var boost_pre_speed: float = 0.0
+var boost_early_release_penalty: float = 10.0
+
+func _handle_boost_input_start() -> void:
+	if Input.is_key_pressed(KEY_SHIFT):
+		if boost_available and not boost_active:
+			_start_boost()
+
+func _start_boost() -> void:
+	boost_active = true
+	boost_available = false
+	boost_timer = 0.0
+	boost_pre_speed = velocity.dot(transform.x.normalized())
+	if boost_pre_speed > 0.001:
+		velocity += transform.x.normalized() * (boost_pre_speed * boost_strength_factor)
+
+func _update_boost_timers(delta: float) -> void:
+	if boost_active:
+		boost_timer += delta
+		if not Input.is_key_pressed(KEY_SHIFT):
+			_end_boost(true)
+			return
+		if boost_timer >= boost_duration:
+			_end_boost(false)
+			return
+		var forward_vec = transform.x.normalized()
+		var current_forward = velocity.dot(forward_vec)
+		var target_forward = boost_pre_speed * (1.0 + boost_strength_factor)
+		var approach_rate = 6.0
+		var new_forward = lerp(current_forward, target_forward, clamp(approach_rate * delta, 0.0, 1.0))
+		var lateral = velocity - forward_vec * current_forward
+		velocity = forward_vec * new_forward + lateral
+
+	if not boost_available:
+		if boost_cooldown_timer > 0.0:
+			boost_cooldown_timer = max(boost_cooldown_timer - delta, 0.0)
+		else:
+			boost_available = true
+
+func _end_boost(early_release: bool) -> void:
+	boost_active = false
+	boost_cooldown_timer = boost_cooldown_base
+	if early_release:
+		boost_cooldown_timer += boost_early_release_penalty
+	boost_timer = 0.0
+	boost_pre_speed = 0.0
