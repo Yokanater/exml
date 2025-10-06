@@ -1,4 +1,10 @@
 extends CharacterBody2D
+class_name Car
+
+#uhhhhhh stuff to cooperate w foreign / other files idk :clownw
+var current_lap: int = 0
+var total_laps: int = 0;
+var car_id: int = 0;
 
 var wheelbase: float = 170.0
 var max_steering_angle: float = deg_to_rad(120.0)
