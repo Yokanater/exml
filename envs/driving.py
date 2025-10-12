@@ -1,5 +1,6 @@
 import gymnasium as gym
 import numpy as np
+import os
 import math
 import pybullet as p
 from resources.car import Car
@@ -83,11 +84,18 @@ class DrivingEnv(gym.Env):
 					   nearVal=0.01, farVal=100)
 		pos, ori = [list(item) for item in
 				p.getBasePositionAndOrientation(car_id, client_id)]
-		camera_height = 15
-		camera_pos = [pos[0], pos[1], pos[2] + camera_height]
-		target_pos = [pos[0], pos[1], 0]
-		up_vec = [0, 1, 0]
-		view_matrix = p.computeViewMatrix(camera_pos, target_pos, up_vec)
+		pov = int(os.environ.get('POV', '0')) if 'os' in globals() else 0
+		if pov == 0:
+			camera_height = 15
+			camera_pos = [pos[0], pos[1], pos[2] + camera_height]
+			target_pos = [pos[0], pos[1], 0]
+			up_vec = [0, 1, 0]
+			view_matrix = p.computeViewMatrix(camera_pos, target_pos, up_vec)
+		else:
+			rot_mat = np.array(p.getMatrixFromQuaternion(ori)).reshape(3, 3)
+			camera_vec = np.matmul(rot_mat, [1, 0, 0])
+			up_vec = np.matmul(rot_mat, np.array([0, 0, 1]))
+			view_matrix = p.computeViewMatrix(pos, pos + camera_vec, up_vec)
 
 		width, height = 400, 400
 		img = p.getCameraImage(width, height, view_matrix, proj_matrix)

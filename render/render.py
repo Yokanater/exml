@@ -1,13 +1,15 @@
-import ctypes
 import pyglet
 import numpy as np
 
 
 class GLRenderer:
-    def __init__(self, width=400, height=400, title='Driving'):
+    def __init__(self, width=400, height=400, pixel_size=4, title='Driving'):
         self.width = width
         self.height = height
-        self.window = pyglet.window.Window(width=self.width, height=self.height, caption=title)
+        self.pixel_size = pixel_size
+        self.scaled_width = int(self.width * self.pixel_size)
+        self.scaled_height = int(self.height * self.pixel_size)
+        self.window = pyglet.window.Window(width=self.scaled_width, height=self.scaled_height, caption=title)
         self.frame = None
         self.sprite = None
 
@@ -30,6 +32,9 @@ class GLRenderer:
             frame = np.ascontiguousarray(np.transpose(frame, (1, 0, 2)))
             frame = np.resize(frame, (self.height, self.width, frame.shape[2]))
         frame = frame.astype(np.uint8)
+        if self.pixel_size != 1:
+            frame = np.repeat(frame, self.pixel_size, axis=0)
+            frame = np.repeat(frame, self.pixel_size, axis=1)
         if frame.shape[2] == 3:
             fmt = 'RGB'
             bytes_per_pixel = 3
@@ -37,7 +42,7 @@ class GLRenderer:
             fmt = 'RGBA'
             bytes_per_pixel = 4
         data_bytes = frame.tobytes()
-        image = pyglet.image.ImageData(self.width, self.height, fmt, data_bytes, pitch= -self.width * bytes_per_pixel)
+        image = pyglet.image.ImageData(self.scaled_width, self.scaled_height, fmt, data_bytes, pitch= -self.scaled_width * bytes_per_pixel)
         self.sprite = pyglet.sprite.Sprite(image, x=0, y=0)
         self.frame = frame
 
