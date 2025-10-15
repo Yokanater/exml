@@ -10,6 +10,7 @@ def run_manual():
     renderer = GLRenderer(width=400, height=400)
 
     keys = {'w': False, 's': False, 'a': False, 'd': False}
+    shift = {'down': False}
 
     @renderer.window.event
     def on_key_press(symbol, modifiers):
@@ -21,6 +22,8 @@ def run_manual():
             keys['a'] = True
         elif symbol == 100:
             keys['d'] = True
+        elif symbol in (65505, 65506):
+            shift['down'] = True
 
     @renderer.window.event
     def on_key_release(symbol, modifiers):
@@ -32,10 +35,10 @@ def run_manual():
             keys['a'] = False
         elif symbol == 100:
             keys['d'] = False
+        elif symbol in (65505, 65506):
+            shift['down'] = False
 
     while True:
-        throttle = None
-        steering = None
         if keys['w'] and not keys['s']:
             action = 0
         elif keys['s'] and not keys['w']:
@@ -47,7 +50,12 @@ def run_manual():
         else:
             action = None
 
-        ob, _, terminated, truncated, _ = env.step(action)
+        if action is None:
+            step_action = None
+        else:
+            step_action = {'act': action, 'boost': 1 if shift['down'] else 0}
+
+        ob, _, terminated, truncated, _ = env.step(step_action)
         done = terminated or truncated
         frame = env.render()
         if frame is not None:

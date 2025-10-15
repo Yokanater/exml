@@ -14,7 +14,10 @@ class DrivingEnv(gym.Env):
 	metadata = {'render.modes': ['human', 'rgb_array']}
 
 	def __init__(self, render_mode=None):
-		self.action_space = gym.spaces.Discrete(4)
+		self.action_space = gym.spaces.Dict({
+			'act': gym.spaces.Discrete(4),
+			'boost': gym.spaces.Discrete(2)
+		})
 		self.render_mode = render_mode
 		self.observation_space = gym.spaces.box.Box(
 			low=np.array([-10, -10, -1, -1, -5, -5, -10, -10], dtype=np.float32),
@@ -32,7 +35,19 @@ class DrivingEnv(gym.Env):
 		self.reset()
 
 	def step(self, action):
-		self.car.apply_action(action)
+		if isinstance(action, dict) and 'act' in action:
+			act = action.get('act')
+			boost = bool(action.get('boost', 0))
+			if act is None:
+				mapped = None
+			else:
+				mapped = act
+			if mapped is None:
+				self.car.apply_action(None)
+			else:
+				self._apply_act_with_boost(mapped, boost)
+		else:
+			self.car.apply_action(action)
 		p.stepSimulation()
 		car_ob = self.car.get_observation()
 
@@ -56,6 +71,24 @@ class DrivingEnv(gym.Env):
 		terminated = self.done
 		truncated = False
 		return ob, reward, terminated, truncated, {}
+
+	def _apply_act_with_boost(self, act, boost):
+		if act == 0:
+			throttle = 1.0
+			steering_angle = 0.0
+		elif act == 1:
+			throttle = -1.0
+			steering_angle = 0.0
+		elif act == 2:
+			throttle = 0.5
+			steering_angle = -0.6
+		elif act == 3:
+			throttle = 0.5
+			steering_angle = 0.6
+		else:
+			throttle = 0.0
+			steering_angle = 0.0
+		self.car.apply_action({'throttle': throttle, 'steering': steering_angle, 'boost': bool(boost)})
 
 	def seed(self, seed=None):
 		self.np_random, seed = gym.utils.seeding.np_random(seed)
