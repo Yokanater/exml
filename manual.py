@@ -11,6 +11,9 @@ def run_manual():
 
     keys = {'w': False, 's': False, 'a': False, 'd': False}
     shift = {'down': False}
+    brake = {'down': False}
+    prev_boost = False
+    prev_brake = False
 
     @renderer.window.event
     def on_key_press(symbol, modifiers):
@@ -24,6 +27,8 @@ def run_manual():
             keys['d'] = True
         elif symbol in (65505, 65506):
             shift['down'] = True
+        elif symbol == 32:
+            brake['down'] = True
 
     @renderer.window.event
     def on_key_release(symbol, modifiers):
@@ -37,6 +42,8 @@ def run_manual():
             keys['d'] = False
         elif symbol in (65505, 65506):
             shift['down'] = False
+        elif symbol == 32:
+            brake['down'] = False
 
     while True:
         if keys['w'] and not keys['s']:
@@ -50,10 +57,15 @@ def run_manual():
         else:
             action = None
 
-        if action is None:
-            step_action = None
-        else:
-            step_action = {'act': action, 'boost': 1 if shift['down'] else 0}
+        is_boost = 1 if shift['down'] else 0
+        is_brake = 1 if brake['down'] else 0
+        step_action = {'act': action, 'boost': is_boost, 'brake': is_brake}
+        if is_boost and not prev_boost:
+            print('boost started')
+        if is_brake and not prev_brake:
+            print('brake started')
+        prev_boost = bool(is_boost)
+        prev_brake = bool(is_brake)
 
         ob, _, terminated, truncated, _ = env.step(step_action)
         done = terminated or truncated

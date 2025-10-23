@@ -16,7 +16,8 @@ class DrivingEnv(gym.Env):
 	def __init__(self, render_mode=None):
 		self.action_space = gym.spaces.Dict({
 			'act': gym.spaces.Discrete(4),
-			'boost': gym.spaces.Discrete(2)
+			'boost': gym.spaces.Discrete(2),
+			'brake': gym.spaces.Discrete(2)
 		})
 		self.render_mode = render_mode
 		self.observation_space = gym.spaces.box.Box(
@@ -38,14 +39,11 @@ class DrivingEnv(gym.Env):
 		if isinstance(action, dict) and 'act' in action:
 			act = action.get('act')
 			boost = bool(action.get('boost', 0))
+			brake = action.get('brake', 0)
 			if act is None:
-				mapped = None
+				self.car.apply_action({'throttle': 0.0, 'steering': 0.0, 'boost': boost, 'brake': brake})
 			else:
-				mapped = act
-			if mapped is None:
-				self.car.apply_action(None)
-			else:
-				self._apply_act_with_boost(mapped, boost)
+				self._apply_act_with_boost(act, boost, brake)
 		else:
 			self.car.apply_action(action)
 		p.stepSimulation()
@@ -72,7 +70,7 @@ class DrivingEnv(gym.Env):
 		truncated = False
 		return ob, reward, terminated, truncated, {}
 
-	def _apply_act_with_boost(self, act, boost):
+	def _apply_act_with_boost(self, act, boost, brake):
 		if act == 0:
 			throttle = 1.0
 			steering_angle = 0.0
@@ -88,7 +86,7 @@ class DrivingEnv(gym.Env):
 		else:
 			throttle = 0.0
 			steering_angle = 0.0
-		self.car.apply_action({'throttle': throttle, 'steering': steering_angle, 'boost': bool(boost)})
+		self.car.apply_action({'throttle': throttle, 'steering': steering_angle, 'boost': bool(boost), 'brake': brake})
 
 	def seed(self, seed=None):
 		self.np_random, seed = gym.utils.seeding.np_random(seed)
@@ -120,13 +118,13 @@ class DrivingEnv(gym.Env):
 	def render(self):
 		mode = self.render_mode or 'human'
 		car_id, client_id = self.car.get_ids()
-		proj_matrix = p.computeProjectionMatrixFOV(fov=80, aspect=1,
-					   nearVal=0.01, farVal=100)
+		proj_matrix = p.computeProjectionMatrixFOV(fov=45, aspect=1,
+				   nearVal=0.01, farVal=100)
 		pos, ori = [list(item) for item in
 				p.getBasePositionAndOrientation(car_id, client_id)]
 		pov = int(os.environ.get('POV', '0')) if 'os' in globals() else 0
 		if pov == 0:
-			camera_height = 15
+			camera_height = 16
 			camera_pos = [pos[0], pos[1], pos[2] + camera_height]
 			target_pos = [pos[0], pos[1], 0]
 			up_vec = [0, 1, 0]
