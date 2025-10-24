@@ -5,7 +5,7 @@ import math
 import pybullet as p
 from resources.car import Car
 from resources.plane import Plane
-from resources.goal import Goal
+from resources.track import Track
 from resources.wall import Wall
 import matplotlib.pyplot as plt
 
@@ -48,24 +48,31 @@ class DrivingEnv(gym.Env):
 			self.car.apply_action(action)
 		p.stepSimulation()
 		car_ob = self.car.get_observation()
+		car_pos = (car_ob[0], car_ob[1])
+		cp_result = None
+		if hasattr(self, 'track') and self.track is not None:
+			cp_result = self.track.check_and_advance(car_pos)
 
 		if hasattr(self, 'wall') and self.wall is not None:
 			car_id, _ = self.car.get_ids()
 			self.wall.check_and_apply_recoil(car_id)
 
-		dist_to_goal = math.sqrt(((car_ob[0] - self.goal[0]) ** 2 +
-								  (car_ob[1] - self.goal[1]) ** 2))
-		reward = max(self.prev_dist_to_goal - dist_to_goal, 0)
-		self.prev_dist_to_goal = dist_to_goal
+		reward = 0
+		if cp_result == 'checkpoint':
+			reward = 1
+		elif cp_result == 'lap':
+			reward = 100
+			self.done = True
 
 		if (car_ob[0] >= 10 or car_ob[0] <= -10 or
 				car_ob[1] >= 10 or car_ob[1] <= -10):
 			self.done = True
-		elif dist_to_goal < 1:
-			self.done = True
-			reward = 50
 
-		ob = np.array(car_ob + self.goal, dtype=np.float32)
+		if hasattr(self, 'track') and self.track is not None:
+			lap_coord = self.track.lap_start
+		else:
+			lap_coord = (0.0, 0.0)
+		ob = np.array(car_ob + lap_coord, dtype=np.float32)
 		terminated = self.done
 		truncated = False
 		return ob, reward, terminated, truncated, {}
@@ -96,24 +103,36 @@ class DrivingEnv(gym.Env):
 		p.resetSimulation(self.client)
 		p.setGravity(0, 0, -10)
 		Plane(self.client)
-		self.car = Car(self.client)
 
-		self.wall = Wall(self.client, base_position=(5, 0, 0))
+		self.wall = Wall(self.client, base_position=(8, 0, 0))
 
-		x = (self.np_random.uniform(5, 9) if self.np_random.integers(2) else
-			self.np_random.uniform(-9, -5))
-		y = (self.np_random.uniform(5, 9) if self.np_random.integers(2) else
-			self.np_random.uniform(-9, -5))
-		self.goal = (x, y)
+		lap_start = (0, 0)
+		checkpoints = [(3, 0), (3, 3), (0, 3), (-3, 3), (-3, 0), (-3, -3), (0, -3), (3, -3)]
+		self.track = Track(self.client, lap_start, checkpoints)
 		self.done = False
 
-		Goal(self.client, self.goal)
+		min_dist = 1.5
+		candidates = [(lap_start[0]-2, lap_start[1]), (lap_start[0]+2, lap_start[1]), (lap_start[0], lap_start[1]-2), (lap_start[0], lap_start[1]+2), (lap_start[0]+4, lap_start[1]), (lap_start[0]-4, lap_start[1])]
+		spawn = None
+		for c in candidates:
+			ok = True
+			for cp in checkpoints + [lap_start]:
+				if math.hypot(c[0]-cp[0], c[1]-cp[1]) < min_dist:
+					ok = False
+					break
+			if ok:
+				spawn = c
+				break
+		if spawn is None:
+			spawn = (lap_start[0] + 5, lap_start[1])
+
+		self.car = Car(self.client, base_position=[spawn[0], spawn[1], 0.5])
 
 		car_ob = self.car.get_observation()
 
-		self.prev_dist_to_goal = math.sqrt(((car_ob[0] - self.goal[0]) ** 2 +
-						   (car_ob[1] - self.goal[1]) ** 2))
-		return np.array(car_ob + self.goal, dtype=np.float32), {}
+		self.prev_dist_to_goal = None
+		self.track.reset()
+		return np.array(car_ob + (0.0, 0.0), dtype=np.float32), {}
 
 	def render(self):
 		mode = self.render_mode or 'human'
@@ -124,7 +143,7 @@ class DrivingEnv(gym.Env):
 				p.getBasePositionAndOrientation(car_id, client_id)]
 		pov = int(os.environ.get('POV', '0')) if 'os' in globals() else 0
 		if pov == 0:
-			camera_height = 16
+			camera_height = 10
 			camera_pos = [pos[0], pos[1], pos[2] + camera_height]
 			target_pos = [pos[0], pos[1], 0]
 			up_vec = [0, 1, 0]

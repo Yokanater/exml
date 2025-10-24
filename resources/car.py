@@ -4,12 +4,16 @@ import math
 
 
 class Car:
-    def __init__(self, client):
+    def __init__(self, client, base_position=None):
         self.client = client
         f_name = os.path.join(os.path.dirname(__file__), 'car.urdf')
+        bp = base_position if base_position is not None else [0, 0, 0.1]
         self.car = p.loadURDF(fileName=f_name,
-                              basePosition=[0, 0, 0.1],
+                              basePosition=bp,
                               physicsClientId=client)
+        quat = p.getQuaternionFromEuler([0, 0, 0])
+        p.resetBasePositionAndOrientation(self.car, bp, quat, physicsClientId=self.client)
+        p.resetBaseVelocity(self.car, linearVelocity=[0, 0, 0], angularVelocity=[0, 0, 0], physicsClientId=self.client)
 
         self.steering_joints = [0, 2]
         self.drive_joints = [1, 3, 4, 5]

@@ -1,0 +1,99 @@
+import pybullet as p
+import os
+import math
+
+
+class Track:
+    def __init__(self, client, lap_start, checkpoints):
+        self.client = client
+        self.lap_start = lap_start
+        self.checkpoints = list(checkpoints)
+        self.next_checkpoint = 0
+        board = [
+            "############################",
+            "#............##............#",
+            "#.####.#####.##.#####.####.#",
+            "#o####.#####.##.#####.####o#",
+            "#.####.#####.##.#####.####.#",
+            "#..........................#",
+            "#.####.##.########.##.####.#",
+            "#.####.##.########.##.####.#",
+            "#......##....##....##......#",
+            "######.##### ## #####.######",
+            "######.##### ## #####.######",
+            "######.##          ##.######",
+            "######.## ###  ### ##.######",
+            "######.## #  b   # ##.######",
+            " p c   ##      d   ##       ",
+            "######.## #   a  # ##.######",
+            "######.## ###  ### ##.######",
+            "######.##          ##.######",
+            "######.## ######## ##.######",
+            "######.## ######## ##.######",
+            "#............##............#",
+            "#.####.#####.##.#####.####.#",
+            "#.####.#####.##.#####.####.#",
+            "#o..##................##..o#",
+            "###.##.##.########.##.##.###",
+            "###.##.##.########.##.##.###",
+            "#......##....##....##......#",
+            "#.##########.##.##########.#",
+            "#.##########.##.##########.#",
+            "#..........................#",
+            "############################",
+        ]
+        width = max(len(r) for r in board)
+        height = len(board)
+        cx = width / 2.0
+        cy = height / 2.0
+        track_path = os.path.join(os.path.dirname(__file__), 'track.urdf')
+        with open(track_path, 'w') as f:
+            f.write('<?xml version="1.0" ?>\n')
+            f.write('<robot name="track">\n')
+            f.write('  <material name="track_mat">\n')
+            f.write('    <color rgba="0.6 0.6 0.6 1"/>\n')
+            f.write('  </material>\n')
+            f.write('  <link name="track_link">\n')
+            f.write('    <inertial>\n')
+            f.write('      <mass value="0.0"/>\n')
+            f.write('      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0"/>\n')
+            f.write('    </inertial>\n')
+            for r, row in enumerate(board):
+                for c, ch in enumerate(row):
+                    if ch == '#':
+                        x = c - cx + 0.5
+                        y = cy - r - 0.5
+                        f.write('    <visual>\n')
+                        f.write('      <origin xyz="%f %f 0.5" rpy="0 0 0"/>\n' % (x, y))
+                        f.write('      <geometry>\n')
+                        f.write('        <box size="1 1 1"/>\n')
+                        f.write('      </geometry>\n')
+                        f.write('      <material name="track_mat"/>\n')
+                        f.write('    </visual>\n')
+                        f.write('    <collision>\n')
+                        f.write('      <origin xyz="%f %f 0.5" rpy="0 0 0"/>\n' % (x, y))
+                        f.write('      <geometry>\n')
+                        f.write('        <box size="1 1 1"/>\n')
+                        f.write('      </geometry>\n')
+                        f.write('    </collision>\n')
+            f.write('  </link>\n')
+            f.write('</robot>\n')
+        p.loadURDF(fileName=track_path, basePosition=[0,0,0], physicsClientId=client)
+
+    def reset(self):
+        self.next_checkpoint = 0
+
+    def check_and_advance(self, pos):
+        if self.next_checkpoint < len(self.checkpoints):
+            cp = self.checkpoints[self.next_checkpoint]
+            d = math.hypot(pos[0] - cp[0], pos[1] - cp[1])
+            if d < 1.0:
+                self.next_checkpoint += 1
+                return 'checkpoint'
+        else:
+            d = math.hypot(pos[0] - self.lap_start[0], pos[1] - self.lap_start[1])
+            if d < 1.0:
+                if self.next_checkpoint >= len(self.checkpoints):
+                    self.next_checkpoint = 0
+                    return 'lap'
+        return None
