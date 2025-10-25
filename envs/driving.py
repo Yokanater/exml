@@ -123,20 +123,29 @@ class DrivingEnv(gym.Env):
 		self.track = Track(self.client, lap_start, checkpoints)
 		self.done = False
 
-		min_dist = 1.5
-		candidates = [(lap_start[0]-2, lap_start[1]), (lap_start[0]+2, lap_start[1]), (lap_start[0], lap_start[1]-2), (lap_start[0], lap_start[1]+2), (lap_start[0]+4, lap_start[1]), (lap_start[0]-4, lap_start[1])]
-		spawn = None
-		for c in candidates:
-			ok = True
-			for cp in checkpoints + [lap_start]:
-				if math.hypot(c[0]-cp[0], c[1]-cp[1]) < min_dist:
-					ok = False
+		track_spawn = None
+		try:
+			track_spawn = self.track.get_spawn()
+		except Exception:
+			track_spawn = None
+
+		if track_spawn is not None:
+			spawn = (float(track_spawn[0]), float(track_spawn[1]))
+		else:
+			min_dist = 1.5
+			candidates = [(lap_start[0]-2, lap_start[1]), (lap_start[0]+2, lap_start[1]), (lap_start[0], lap_start[1]-2), (lap_start[0], lap_start[1]+2), (lap_start[0]+4, lap_start[1]), (lap_start[0]-4, lap_start[1])]
+			spawn = None
+			for c in candidates:
+				ok = True
+				for cp in checkpoints + [lap_start]:
+					if math.hypot(c[0]-cp[0], c[1]-cp[1]) < min_dist:
+						ok = False
+						break
+				if ok:
+					spawn = c
 					break
-			if ok:
-				spawn = c
-				break
-		if spawn is None:
-			spawn = (lap_start[0] + 5, lap_start[1])
+			if spawn is None:
+				spawn = (lap_start[0] + 5, lap_start[1])
 
 		self.car = Car(self.client, base_position=[spawn[0], spawn[1], 0.5])
 

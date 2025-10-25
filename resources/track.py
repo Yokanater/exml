@@ -14,21 +14,31 @@ class Track:
             "#..........................#",
             "#..........................#",
             "#..........................#",
+            "#...####################...#",
+            "#...####################...#",
+            "#...####################...#",
+            "#...####################...#",
+            "#...####################...#",
+            "#...####################...#",
             "#..........................#",
             "#..........................#",
-            "#....................#.....#",
-            "#..........................#",
-            "#..........................#",
-            "#..........................#",
-            "#..........................#",
-            "#..........................#",
-            "#..........................#",
+            "#.p........................#",
             "############################",
         ]
         width = max(len(r) for r in board)
         height = len(board)
         cx = width / 2.0
         cy = height / 2.0
+        self.spawn_world = None
+        for r, row in enumerate(board):
+            for c, ch in enumerate(row):
+                if ch == 'p':
+                    x = c - cx + 0.5
+                    y = cy - r - 0.5
+                    self.spawn_world = (x, y)
+                    break
+            if self.spawn_world is not None:
+                break
         track_path = os.path.join(os.path.dirname(__file__), 'track.urdf')
         with open(track_path, 'w') as f:
             f.write('<?xml version="1.0" ?>\n')
@@ -62,6 +72,9 @@ class Track:
             f.write('  </link>\n')
             f.write('</robot>\n')
         p.loadURDF(fileName=track_path, basePosition=[0,0,0], physicsClientId=client)
+
+    def get_spawn(self):
+        return self.spawn_world
 
     def reset(self):
         self.next_checkpoint = 0
