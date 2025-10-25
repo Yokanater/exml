@@ -6,12 +6,13 @@ import pybullet as p
 from resources.car import Car
 from resources.plane import Plane
 from resources.track import Track
-from resources.wall import Wall
+
 import matplotlib.pyplot as plt
 
 
 class DrivingEnv(gym.Env):
 	metadata = {'render.modes': ['human', 'rgb_array']}
+
 
 	def __init__(self, render_mode=None):
 		self.action_space = gym.spaces.Dict({
@@ -20,9 +21,12 @@ class DrivingEnv(gym.Env):
 			'brake': gym.spaces.Discrete(2)
 		})
 		self.render_mode = render_mode
+		self.world_bounds = ((-10.0, 10.0), (-10.0, 10.0))
+		xmin, xmax = self.world_bounds[0]
+		ymin, ymax = self.world_bounds[1]
 		self.observation_space = gym.spaces.box.Box(
-			low=np.array([-10, -10, -1, -1, -5, -5, -10, -10], dtype=np.float32),
-			high=np.array([10, 10, 1, 1, 5, 5, 10, 10], dtype=np.float32))
+			low=np.array([xmin, ymin, -1, -1, -5, -5, xmin, ymin], dtype=np.float32),
+			high=np.array([xmax, ymax, 1, 1, 5, 5, xmax, ymax], dtype=np.float32))
 		self.np_random, _ = gym.utils.seeding.np_random()
 
 		self.client = p.connect(p.DIRECT)
@@ -47,15 +51,34 @@ class DrivingEnv(gym.Env):
 		else:
 			self.car.apply_action(action)
 		p.stepSimulation()
+		car_id, _ = self.car.get_ids()
+		contacts = p.getContactPoints(bodyA=car_id, physicsClientId=self.client)
+		for cp in contacts:
+			other = cp[2]
+			normal_on_b = cp[7]
+			if abs(normal_on_b[2]) > 0.5:
+				continue
+			vA = p.getBaseVelocity(car_id, self.client)[0]
+			if other >= 0:
+				vB = p.getBaseVelocity(other, self.client)[0]
+			else:
+				vB = (0.0, 0.0, 0.0)
+			vrel = (vA[0] - vB[0], vA[1] - vB[1], vA[2] - vB[2])
+			normal_a = (-normal_on_b[0], -normal_on_b[1], -normal_on_b[2])
+			impact_speed = max(0.0, vrel[0] * normal_a[0] + vrel[1] * normal_a[1] + vrel[2] * normal_a[2])
+			if impact_speed <= 0.05:
+				continue
+			rebound = 0.6
+			dv = (normal_on_b[0] * impact_speed * rebound, normal_on_b[1] * impact_speed * rebound, normal_on_b[2] * impact_speed * rebound)
+			new_vel = (vA[0] + dv[0], vA[1] + dv[1], vA[2] + dv[2])
+			p.resetBaseVelocity(car_id, linearVelocity=new_vel, physicsClientId=self.client)
 		car_ob = self.car.get_observation()
 		car_pos = (car_ob[0], car_ob[1])
 		cp_result = None
 		if hasattr(self, 'track') and self.track is not None:
 			cp_result = self.track.check_and_advance(car_pos)
 
-		if hasattr(self, 'wall') and self.wall is not None:
-			car_id, _ = self.car.get_ids()
-			self.wall.check_and_apply_recoil(car_id)
+
 
 		reward = 0
 		if cp_result == 'checkpoint':
@@ -64,8 +87,9 @@ class DrivingEnv(gym.Env):
 			reward = 100
 			self.done = True
 
-		if (car_ob[0] >= 10 or car_ob[0] <= -10 or
-				car_ob[1] >= 10 or car_ob[1] <= -10):
+		xmin, xmax = self.world_bounds[0]
+		ymin, ymax = self.world_bounds[1]
+		if (car_ob[0] > xmax or car_ob[0] < xmin or car_ob[1] > ymax or car_ob[1] < ymin):
 			self.done = True
 
 		if hasattr(self, 'track') and self.track is not None:
@@ -102,9 +126,17 @@ class DrivingEnv(gym.Env):
 	def reset(self, *, seed=None, options=None):
 		p.resetSimulation(self.client)
 		p.setGravity(0, 0, -10)
-		Plane(self.client)
+		plane = Plane(self.client)
+		try:
+			(xmin, xmax), (ymin, ymax) = plane.get_bounds()
+			self.world_bounds = ((float(xmin), float(xmax)), (float(ymin), float(ymax)))
+			self.observation_space = gym.spaces.box.Box(
+				low=np.array([xmin, ymin, -1, -1, -5, -5, xmin, ymin], dtype=np.float32),
+				high=np.array([xmax, ymax, 1, 1, 5, 5, xmax, ymax], dtype=np.float32))
+		except Exception:
+			pass
 
-		self.wall = Wall(self.client, base_position=(8, 0, 0))
+
 
 		lap_start = (0, 0)
 		checkpoints = [(3, 0), (3, 3), (0, 3), (-3, 3), (-3, 0), (-3, -3), (0, -3), (3, -3)]
