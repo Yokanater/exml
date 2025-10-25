@@ -35,7 +35,7 @@ class Car:
         self.boost_cooldown = 10.0
         self.boost_cooldown_timer = 0.0
 
-        self.c_brake = 40.0
+        self.c_brake = 10.0
         self.brake_ramp = 0.0
         self.brake_ramp_rate = 0.8
         self.brake_decay_rate = 6.0

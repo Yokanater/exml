@@ -46,20 +46,21 @@ def run_manual():
             brake['down'] = False
 
     while True:
+        throttle = 0.0
         if keys['w'] and not keys['s']:
-            action = 0
+            throttle = 1.0
         elif keys['s'] and not keys['w']:
-            action = 1
-        elif keys['a'] and not keys['d']:
-            action = 2
+            throttle = -1.0
+
+        steering = 0.0
+        if keys['a'] and not keys['d']:
+            steering = -0.6
         elif keys['d'] and not keys['a']:
-            action = 3
-        else:
-            action = None
+            steering = 0.6
 
         is_boost = 1 if shift['down'] else 0
         is_brake = 1 if brake['down'] else 0
-        step_action = {'act': action, 'boost': is_boost, 'brake': is_brake}
+        step_action = {'throttle': throttle, 'steering': steering, 'boost': is_boost, 'brake': is_brake}
         if is_boost and not prev_boost:
             print('boost started')
         if is_brake and not prev_brake:
