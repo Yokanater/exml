@@ -4,12 +4,14 @@ import math
 
 
 class Car:
-    def __init__(self, client, base_position=None):
+    def __init__(self, client, base_position=None, scale=0.2):
         self.client = client
+        self.scale = float(scale)
         f_name = os.path.join(os.path.dirname(__file__), 'car.urdf')
-        bp = base_position if base_position is not None else [0, 0, 0.1]
+        bp = base_position if base_position is not None else [0, 0, 0.1 * self.scale]
         self.car = p.loadURDF(fileName=f_name,
                               basePosition=bp,
+                              globalScaling=self.scale,
                               physicsClientId=client)
         quat = p.getQuaternionFromEuler([0, 0, 0])
         p.resetBasePositionAndOrientation(self.car, bp, quat, physicsClientId=self.client)
@@ -40,6 +42,12 @@ class Car:
         self.brake_ramp_rate = 0.8
         self.brake_decay_rate = 6.0
         self.collision_stun = 0.0
+        self.c_downforce = 80.0
+        self.c_angular_damping = 0.5
+        self.c_kanav_powder = 10.0
+        p.changeDynamics(self.car, -1, linearDamping=0.06, angularDamping=0.5, physicsClientId=self.client)
+        for link_idx in (self.steering_joints + self.drive_joints):
+            p.changeDynamics(self.car, link_idx, lateralFriction=1.0, spinningFriction=0.1, rollingFriction=0.01, physicsClientId=self.client)
 
     def get_ids(self):
         return self.car, self.client
@@ -186,7 +194,7 @@ class Car:
             p.resetBaseVelocity(self.car, linearVelocity=new_lin_vel, physicsClientId=self.client)
             self.joint_speed = new_forward_speed
 
-        max_force = 1.2 * (1.0 + 0.5 * self.boost_ramp)
+        max_force = max(10.0, self.c_throttle * (1.0 + 0.5 * self.boost_ramp))
 
         if self.collision_stun > 0.0:
             max_force = 0.0
@@ -207,6 +215,16 @@ class Car:
                 targetVelocities=[self.joint_speed] * 4,
                 forces=[max_force] * 4,
                 physicsClientId=self.client)
+
+        pos, ori = p.getBasePositionAndOrientation(self.car, self.client)
+        rot = p.getMatrixFromQuaternion(ori)
+        forward = (rot[0], rot[3], rot[6])
+        lin_vel, ang_vel = p.getBaseVelocity(self.car, self.client)
+        forward_speed = lin_vel[0] * forward[0] + lin_vel[1] * forward[1] + lin_vel[2] * forward[2]
+
+        speed_for_down = max(0.0, forward_speed)
+        downforce = -self.c_downforce * speed_for_down * abs(speed_for_down)
+        p.applyExternalForce(self.car, -1, [0.0, 0.0, downforce], pos, p.WORLD_FRAME, physicsClientId=self.client)
 
     def get_observation(self):
         pos, ang = p.getBasePositionAndOrientation(self.car, self.client)
