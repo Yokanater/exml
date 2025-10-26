@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 
 
 class DrivingEnv(gym.Env):
-	metadata = {'render.modes': ['human', 'rgb_array']}
+	metadata = {'render_modes': ['human', 'rgb_array'], 'render_fps': 30}
 
 
 	def __init__(self, render_mode=None):
@@ -31,6 +31,7 @@ class DrivingEnv(gym.Env):
 
 		self.client = p.connect(p.DIRECT)
 		p.setTimeStep(1/30, self.client)
+		self.physics_substeps = 4
 
 		self.car = None
 		self.goal = None
@@ -50,7 +51,8 @@ class DrivingEnv(gym.Env):
 				self._apply_act_with_boost(act, boost, brake)
 		else:
 			self.car.apply_action(action)
-		p.stepSimulation()
+		for _ in range(getattr(self, 'physics_substeps', 1)):
+			p.stepSimulation()
 		self.car.handle_collisions()
 		car_ob = self.car.get_observation()
 		car_pos = (car_ob[0], car_ob[1])
@@ -105,7 +107,7 @@ class DrivingEnv(gym.Env):
 
 	def reset(self, *, seed=None, options=None):
 		p.resetSimulation(self.client)
-		p.setGravity(0, 0, -10)
+		p.setGravity(0, 0, -10, physicsClientId=self.client)
 		plane = Plane(self.client)
 		try:
 			(xmin, xmax), (ymin, ymax) = plane.get_bounds()
@@ -147,7 +149,7 @@ class DrivingEnv(gym.Env):
 			if spawn is None:
 				spawn = (lap_start[0] + 5, lap_start[1])
 
-		self.car = Car(self.client, base_position=[spawn[0], spawn[1], 0.5])
+		self.car = Car(self.client, base_position=[spawn[0], spawn[1], 0.55])
 
 		car_ob = self.car.get_observation()
 
@@ -164,7 +166,7 @@ class DrivingEnv(gym.Env):
 				p.getBasePositionAndOrientation(car_id, client_id)]
 		pov = int(os.environ.get('POV', '0')) if 'os' in globals() else 0
 		if pov == 0:
-			camera_height = 100
+			camera_height = 5
 			camera_pos = [pos[0], pos[1], pos[2] + camera_height]
 			target_pos = [pos[0], pos[1], 0]
 			up_vec = [0, 1, 0]

@@ -9,7 +9,7 @@ class GLRenderer:
         self.pixel_size = pixel_size
         self.scaled_width = int(self.width * self.pixel_size)
         self.scaled_height = int(self.height * self.pixel_size)
-        self.window = pyglet.window.Window(width=self.scaled_width, height=self.scaled_height, caption=title)
+        self.window = pyglet.window.Window(width=self.scaled_width, height=self.scaled_height, caption=title, vsync=True)
         self.frame = None
         self.sprite = None
 
