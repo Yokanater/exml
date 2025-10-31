@@ -42,10 +42,12 @@ class Car:
         self.brake_ramp_rate = 0.8
         self.brake_decay_rate = 6.0
         self.collision_stun = 0.0
-        self.c_downforce = 80.0
-        self.c_angular_damping = 0.5
+        self.c_downforce = 10.0
+        self.c_angular_damping = 1.0
         self.c_kanav_powder = 10.0
-        p.changeDynamics(self.car, -1, linearDamping=0.06, angularDamping=0.5, physicsClientId=self.client)
+        self.default_linear_damping = 0.2
+        self.default_angular_damping = 1.0
+        p.changeDynamics(self.car, -1, linearDamping=self.default_linear_damping, angularDamping=self.default_angular_damping, physicsClientId=self.client)
         for link_idx in (self.steering_joints + self.drive_joints):
             p.changeDynamics(self.car, link_idx, lateralFriction=1.0, spinningFriction=0.1, rollingFriction=0.01, physicsClientId=self.client)
 
@@ -189,10 +191,11 @@ class Car:
                 new_forward_speed = min(0.0, forward_speed + brake_delta)
             else:
                 new_forward_speed = 0.0
-            dv = new_forward_speed - forward_speed
-            new_lin_vel = [lin_vel[0] + dv * forward[0], lin_vel[1] + dv * forward[1], lin_vel[2] + dv * forward[2]]
-            p.resetBaseVelocity(self.car, linearVelocity=new_lin_vel, physicsClientId=self.client)
             self.joint_speed = new_forward_speed
+            extra_damping = min(2.0, self.brake_ramp * 2.0)
+            p.changeDynamics(self.car, -1, linearDamping=self.default_linear_damping + extra_damping, angularDamping=self.default_angular_damping + extra_damping * 0.5, physicsClientId=self.client)
+        else:
+            p.changeDynamics(self.car, -1, linearDamping=self.default_linear_damping, angularDamping=self.default_angular_damping, physicsClientId=self.client)
 
         max_force = max(10.0, self.c_throttle * (1.0 + 0.5 * self.boost_ramp))
 
