@@ -238,7 +238,7 @@ class DrivingEnv(gym.Env):
 		self.lap_times = []
 		self.lap_start_step = 0
 		self.time_per_env_step = getattr(self, 'physics_substeps', 1) * (1/30)
-		p.setGravity(0, 0, -10, physicsClientId=self.client)
+		p.setGravity(0, 0, -30, physicsClientId=self.client)
 		plane = Plane(self.client)
 		try:
 			(xmin, xmax), (ymin, ymax) = plane.get_bounds()
