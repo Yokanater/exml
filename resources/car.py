@@ -22,7 +22,9 @@ class Car:
         self.joint_speed = 0
         self.c_rolling = 0.2
         self.c_drag = 0.01
-        self.c_throttle = 20
+        self.c_throttle = 80
+
+        self.max_drive_force = 400.0
 
         self.boost_request = False
         self.boost_active = False
@@ -45,11 +47,14 @@ class Car:
         self.c_downforce = 10.0
         self.c_angular_damping = 1.0
         self.c_kanav_powder = 10.0
-        self.default_linear_damping = 0.2
-        self.default_angular_damping = 1.0
+        self.default_linear_damping = 0.6
+        self.default_angular_damping = 12.0
+        self.c_stabilize_angle = 120.0
+        self.c_stabilize_angvel = 12.0
+        self.c_stabilize_max_torque = 200.0
         p.changeDynamics(self.car, -1, linearDamping=self.default_linear_damping, angularDamping=self.default_angular_damping, physicsClientId=self.client)
         for link_idx in (self.steering_joints + self.drive_joints):
-            p.changeDynamics(self.car, link_idx, lateralFriction=1.0, spinningFriction=0.1, rollingFriction=0.01, physicsClientId=self.client)
+            p.changeDynamics(self.car, link_idx, lateralFriction=1.0, spinningFriction=0.1, rollingFriction=0.01, angularDamping=self.default_angular_damping * 0.5, physicsClientId=self.client)
 
     def get_ids(self):
         return self.car, self.client
@@ -58,6 +63,10 @@ class Car:
         contacts = p.getContactPoints(bodyA=self.car, physicsClientId=self.client)
         for cp in contacts:
             other = cp[2]
+            if other >= 0:
+                dyn = p.getDynamicsInfo(other, -1, physicsClientId=self.client)
+                if dyn is not None and len(dyn) > 0 and dyn[0] == 0.0:
+                    continue
             normal_on_b = cp[7]
             if abs(normal_on_b[2]) > 0.5:
                 continue
@@ -197,7 +206,8 @@ class Car:
         else:
             p.changeDynamics(self.car, -1, linearDamping=self.default_linear_damping, angularDamping=self.default_angular_damping, physicsClientId=self.client)
 
-        max_force = max(10.0, self.c_throttle * (1.0 + 0.5 * self.boost_ramp))
+            max_force = max(10.0, self.c_throttle * (1.0 + 0.5 * self.boost_ramp))
+            max_force = min(max_force, self.max_drive_force)
 
         if self.collision_stun > 0.0:
             max_force = 0.0
@@ -228,6 +238,54 @@ class Car:
         speed_for_down = max(0.0, forward_speed)
         downforce = -self.c_downforce * speed_for_down * abs(speed_for_down)
         p.applyExternalForce(self.car, -1, [0.0, 0.0, downforce], pos, p.WORLD_FRAME, physicsClientId=self.client)
+        euler = p.getEulerFromQuaternion(ori)
+        roll = 0.0
+        pitch = 0.0
+        yaw = euler[2]
+        if yaw < -math.pi:
+            yaw += 2.0 * math.pi
+        elif yaw > math.pi:
+            yaw -= 2.0 * math.pi
+        max_yaw_rate = 2.0
+        ang_z = ang_vel[2]
+        if ang_z < -max_yaw_rate:
+            ang_z = -max_yaw_rate
+        elif ang_z > max_yaw_rate:
+            ang_z = max_yaw_rate
+        ang_vel = (ang_vel[0], ang_vel[1], ang_z)
+        for name, jlist in (("steer", self.steering_joints), ("drive", self.drive_joints)):
+            for i, idx in enumerate(jlist):
+                js = p.getJointState(self.car, idx, physicsClientId=self.client)
+                if js is None:
+                    continue
+                jpos = js[0]
+                jvel = js[1]
+                jtorque = js[3] if len(js) > 3 else 0.0
+                print("joint {}_{} idx {}: pos: {:.3f} rad, vel: {:.3f} rad/s, torque: {:.3f}".format(name, i, idx, jpos, jvel, jtorque))
+        max_angle = max(abs(roll), abs(pitch))
+        if max_angle > math.radians(50):
+            new_ang = (ang_vel[0] * 0.05, ang_vel[1] * 0.05, ang_vel[2] * 0.2)
+            p.resetBaseVelocity(self.car, linearVelocity=lin_vel, angularVelocity=new_ang, physicsClientId=self.client)
+            p.changeDynamics(self.car, -1, angularDamping=self.default_angular_damping + 50.0, physicsClientId=self.client)
+        else:
+            p.changeDynamics(self.car, -1, angularDamping=self.default_angular_damping, physicsClientId=self.client)
+        local_t_x = - (self.c_stabilize_angle * roll + self.c_stabilize_angvel * ang_vel[0])
+        local_t_y = - (self.c_stabilize_angle * pitch + self.c_stabilize_angvel * ang_vel[1])
+        local_t_z = - (0.5 * self.c_stabilize_angle * yaw + 0.5 * self.c_stabilize_angvel * ang_vel[2])
+        max_z_torque = self.c_stabilize_max_torque * 0.5
+        if abs(local_t_z) > max_z_torque and max_z_torque > 0.0:
+            local_t_z = max_z_torque * (local_t_z / abs(local_t_z))
+        col0 = (rot[0], rot[3], rot[6])
+        col1 = (rot[1], rot[4], rot[7])
+        col2 = (rot[2], rot[5], rot[8])
+        torque_world = (local_t_x * col0[0] + local_t_y * col1[0] + local_t_z * col2[0],
+                local_t_x * col0[1] + local_t_y * col1[1] + local_t_z * col2[1],
+                local_t_x * col0[2] + local_t_y * col1[2] + local_t_z * col2[2])
+        torque_norm = math.sqrt(torque_world[0] * torque_world[0] + torque_world[1] * torque_world[1] + torque_world[2] * torque_world[2])
+        if torque_norm > self.c_stabilize_max_torque and torque_norm > 0.0:
+            scale = self.c_stabilize_max_torque / torque_norm
+            torque_world = (torque_world[0] * scale, torque_world[1] * scale, torque_world[2] * scale)
+        p.applyExternalTorque(self.car, -1, torque_world, p.WORLD_FRAME, physicsClientId=self.client)
 
     def get_observation(self):
         pos, ang = p.getBasePositionAndOrientation(self.car, self.client)

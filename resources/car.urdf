@@ -18,7 +18,7 @@
             <material name="blue"/>
         </visual>
         <inertial>
-            <mass value="6"/>
+            <mass value="400"/>
             <inertia ixx="0.1" ixy="0" ixz="0" iyy="0.1" iyz="0.0" izz="0.1"/>
         </inertial> 
     </link> 
@@ -41,7 +41,7 @@
         </collision> 
         <inertial> 
             <origin rpy="1.57075 1.57075 0"/>
-            <mass value="0.3"/>
+            <mass value="95"/>
             <inertia ixx="0.4" ixy="0" ixz="0" iyy="0.4" iyz="0.0" izz="0.2"/>
         </inertial> 
     </link> 
@@ -49,7 +49,7 @@
         <parent link="left_hinge"/>
         <child link="left_front_wheel"/> 
         <axis xyz="0 1 0"/>
-        <origin xyz="0 0.2 0"/>
+        <origin xyz="0 0.15 0" rpy="0 0 0"/>
     </joint>
     <!-- Left Front Wheel - Hinge -->
     <link name="left_hinge">
@@ -62,7 +62,7 @@
         </visual>
         <inertial> 
             <origin rpy="0 0 1.57075"/>
-            <mass value="0.01"/>
+            <mass value="20"/>
             <inertia ixx="5E-6" ixy="0" ixz="0" iyy="5E-6" iyz="0" izz="5E-6"/>
         </inertial> 
     </link> 
@@ -90,7 +90,7 @@
         </collision> 
         <inertial> 
             <origin rpy="-1.57075 -1.57075 0"/>
-            <mass value="0.3"/>
+            <mass value="95"/>
             <inertia ixx="0.4" ixy="0" ixz="0" iyy="0.4" iyz="0.0" izz="0.2"/>
         </inertial> 
     </link> 
@@ -98,7 +98,7 @@
         <parent link="right_hinge"/>
         <child link="right_front_wheel"/> 
         <axis xyz="0 1 0"/>
-        <origin xyz="0 -0.2 0"/>
+        <origin xyz="0 -0.15 0" rpy="0 0 0"/>
     </joint>
     <!-- Right Front Wheel - Hinge -->
     <link name="right_hinge">
@@ -111,7 +111,7 @@
         </visual>
         <inertial> 
             <origin rpy="0 0 -1.57075"/>
-            <mass value="0.01"/>
+            <mass value="20"/>
             <inertia ixx="5E-6" ixy="0" ixz="0" iyy="5E-6" iyz="0" izz="5E-6"/>
         </inertial> 
     </link> 
@@ -139,7 +139,7 @@
         </collision> 
         <inertial> 
             <origin rpy="1.57075 1.57075 0"/>
-            <mass value="0.3"/>
+            <mass value="115"/>
             <inertia ixx="0.4" ixy="0" ixz="0" iyy="0.4" iyz="0.0" izz="0.2"/>
         </inertial> 
     </link> 
@@ -147,7 +147,7 @@
         <parent link="base_link"/>
         <child link="left_back_wheel"/> 
         <axis xyz="0 1 0"/>
-        <origin xyz="-0.2 0.175 0"/>
+        <origin xyz="-0.2 0.175 0" rpy="0 0 0"/>
     </joint>
     <!-- Right Back Wheel -->
     <link name="right_back_wheel">
@@ -166,7 +166,7 @@
         </collision> 
         <inertial> 
             <origin rpy="-1.57075 -1.57075 0"/>
-            <mass value="0.3"/>
+            <mass value="115"/>
             <inertia ixx="0.4" ixy="0" ixz="0" iyy="0.4" iyz="0.0" izz="0.2"/>
         </inertial> 
     </link> 
@@ -174,6 +174,6 @@
         <parent link="base_link"/>
         <child link="right_back_wheel"/> 
         <axis xyz="0 1 0"/>
-        <origin xyz="-0.2 -0.175 0"/>
+        <origin xyz="-0.2 -0.175 0" rpy="0 0 0"/>
     </joint>
 </robot>

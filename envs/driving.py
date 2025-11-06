@@ -297,7 +297,7 @@ class DrivingEnv(gym.Env):
 				p.getBasePositionAndOrientation(car_id, client_id)]
 		pov = int(os.environ.get('POV', '0')) if 'os' in globals() else 0
 		if pov == 0:
-			camera_height = 5
+			camera_height = 2
 			camera_pos = [pos[0], pos[1], pos[2] + camera_height]
 			target_pos = [pos[0], pos[1], 0]
 			up_vec = [0, 1, 0]
