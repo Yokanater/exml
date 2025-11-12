@@ -27,15 +27,13 @@ class F1Game:
 
         world_w = self.track.width * CELL_SIZE
         world_h = self.track.height * CELL_SIZE
-        
-        # Calculate zoom to fit entire track in screen
+
         zoom_x = self.screen_width / world_w
         zoom_y = self.screen_height / world_h
-        zoom = min(zoom_x, zoom_y)  # Use smaller zoom to fit everything
+        zoom = min(zoom_x, zoom_y)  
         
         self.camera = Camera(self.screen_width, self.screen_height, world_w, world_h, zoom=zoom)
         
-        # Center camera on the entire track (don't move it)
         self.camera.offset_x = 0
         self.camera.offset_y = 0
 
@@ -75,17 +73,12 @@ class F1Game:
     def render(self):
         self.screen.fill((0, 0, 0))
 
-        # DON'T update camera - keep it static showing full track
-        # self.camera.update() is NOT called
-        
-        # Render track with camera
         self.track.render(self.screen, self.camera)
         
-        # Render cars with camera
         for idx, car in enumerate(self.cars):
             car.render(self.screen, self.camera)
         
-        # Display lap info
+        # lap inf
         if self.cars:
             font = pygame.font.Font(None, 24)
             for idx, car in enumerate(self.cars):
