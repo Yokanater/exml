@@ -12,9 +12,12 @@ class Car:
         self._image = self._original_image
         self._rect = self._image.get_rect()
         
+        self._hitbox = pygame.Rect(0, 0, int(12 * 0.7), int(18 * 0.7))
+        
         self._x = x
         self._y = y
         self._rect.center = (x, y)
+        self._hitbox.center = (x, y)
         
         self._velocity = 0
         self._angle = 0
@@ -114,11 +117,12 @@ class Car:
         new_x = self._x + dx
         new_y = self._y + dy
         
-        # Track collision <3
+        # Track collision
         if not track.check_collision(new_x, new_y):
             self._x = new_x
             self._y = new_y
             self._rect.center = (self._x, self._y)
+            self._hitbox.center = (self._x, self._y)
         else:
             now2 = pygame.time.get_ticks()
             if now2 >= getattr(self, '_collision_end_time', 0):
@@ -135,12 +139,12 @@ class Car:
                 self._steering_angle = 0
                 self._collision_end_time = now2 + 1000
 
-        # Car 2 car collisions >>:
+        #Car to car :p
         if all_cars:
             for other in all_cars:
                 if other is self or other.is_in_collision():
                     continue
-                if self._rect.colliderect(other._rect):
+                if self._hitbox.colliderect(other._hitbox):
                     # Recoil
                     impact_speed = abs(self._velocity)
                     self._velocity = -impact_speed * getattr(self, '_recoil_factor', 0.5)
@@ -172,6 +176,7 @@ class Car:
         
         self._image = pygame.transform.rotate(self._original_image, -self._angle)
         self._rect = self._image.get_rect(center=(self._x, self._y))
+        self._hitbox.center = (self._x, self._y)
 
 
     def render(self, screen, camera=None):
@@ -199,12 +204,12 @@ class Car:
         self._steering_angle = 0
         self._collision_end_time = 0
         self._rect.center = (x, y)
+        self._hitbox.center = (x, y)
         self._image = self._original_image
 
     def is_in_collision(self):
         return pygame.time.get_ticks() < self._collision_end_time
     
-    #well, im getting kicked, tbf i was alone and scwared. ive never actively worked in python nor ml envs nor gamedev. and I only had 1 day. Not that these are excuses but simply stating of legitimate facts
     def get_observations(self, game):
         x, y = self.get_position()
         gx = int(x // CELL_SIZE)
