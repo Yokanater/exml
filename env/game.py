@@ -22,7 +22,7 @@ class F1Game:
         model_dirs = [d for d in os.listdir('models') if os.path.isdir(os.path.join('models', d))]
         for idx, model_dir in enumerate(model_dirs):
             start_x, start_y = self.track.get_start_position()
-            car = Car(start_x + (idx*CAR_GAP), start_y, "assets/car.png", idx)
+            car = Car(start_x + (idx*CAR_GAP), start_y, "assets/car.png", idx, start_x + (idx*CAR_GAP), start_y + (idx*CAR_GAP))
             self.cars.append(car)
 
         world_w = self.track.width * CELL_SIZE

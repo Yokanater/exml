@@ -4,7 +4,9 @@ from env.constants import CELL_SIZE, CAR_GAP
 
 
 class Car:
-    def __init__(self, x, y, image_path, uni):
+    def __init__(self, x, y, image_path, uni, start_x, start_y):
+        startX = start_x
+        starty = start_y
         self._uni_index = uni
 
         self._original_image = pygame.image.load(image_path).convert_alpha()
@@ -270,10 +272,14 @@ def get_lap_progress(game, carID):
     prev_id = 0
     if collected:
         prev_id = max(collected)
+
     if prev_id == 0:
-        prev_pos = track.get_start_position() + (carID * CAR_GAP)
+        start_x, start_y = track.get_start_position()
+        prev_pos = (start_x + carID * CAR_GAP, start_y)
     else:
         prev_pos = _checkpoint_centroid(track, prev_id)
+
+
     next_id = prev_id + 1 if prev_id < total else 1
     next_pos = _checkpoint_centroid(track, next_id)
     if not prev_pos or not next_pos:

@@ -9,3 +9,7 @@ def steer_right(car, amount=10):
 
 def steer_left(car, amount=10):
     car.steer(-amount)
+
+def brake(car, strength=0.6):
+    car.brake(strength)
+

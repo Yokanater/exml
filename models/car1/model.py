@@ -1,6 +1,5 @@
 import pygame
-from env.controls import forward, back, steer_right, steer_left
-from env.braking import brake
+from env.controls import forward, back, steer_right, steer_left, brake
 
 def model(car):
     keys = pygame.key.get_pressed()
