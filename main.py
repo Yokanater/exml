@@ -68,15 +68,13 @@ def load_models_concurrent(models_dir="models", max_workers=4):
 
 if __name__ == "__main__":
     from env.game import F1Game
-    
+    game = F1Game()
     models = load_models_concurrent("models", max_workers=4)  
-    
     if not models:
         print("No models loaded! Exiting.")
         exit(1)
     
     print(f"\nStarting game with {len(models)} models...")
-    game = F1Game()
     
     control_funcs = [func for name, func in models]
     game.run(control_funcs)

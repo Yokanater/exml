@@ -4,10 +4,12 @@ from env.constants import CELL_SIZE, CAR_GAP
 
 
 class Car:
-    def __init__(self, x, y, image_path, uni, start_x, start_y):
+    def __init__(self, x, y, image_path, uni, start_x, start_y, game, track):
         startX = start_x
         starty = start_y
         self._uni_index = uni
+        self._game = game
+        self._track = track
 
         self._original_image = pygame.image.load(image_path).convert_alpha()
         self._original_image = pygame.transform.scale(self._original_image, (12, 18))
@@ -46,7 +48,7 @@ class Car:
         self._collision_end_time = 0
         self._recoil_factor = 0.5
         
-    def accelerate(self, direction):
+    def _accelerate(self, direction):
         now = pygame.time.get_ticks()
         if now < getattr(self, '_collision_end_time', 0):
             return
@@ -73,7 +75,7 @@ class Car:
         else:
             self._accelerating = False
     
-    def steer(self, amount):
+    def _steer(self, amount):
         now = pygame.time.get_ticks()
         if now < getattr(self, '_collision_end_time', 0):
             return
@@ -90,14 +92,15 @@ class Car:
             return
         self._boost_request_time = now
 
-    def brake(self, strength=0.6):
+    def brake(self):
+        strength = 0.6
         now = pygame.time.get_ticks()
         if now < self._collision_end_time:
             return
         strength = max(0.0, min(1.0, strength))
         self._velocity *= (1.0 - strength)
     
-    def update(self, track, all_cars=None):
+    def update(self, all_cars=None):
         now = pygame.time.get_ticks()
         dt = now - self._last_time
         if dt < 0:
@@ -119,8 +122,7 @@ class Car:
         new_x = self._x + dx
         new_y = self._y + dy
         
-        # Track collision
-        if not track.check_collision(new_x, new_y):
+        if not self._track.check_collision(new_x, new_y):
             self._x = new_x
             self._y = new_y
             self._rect.center = (self._x, self._y)
@@ -141,18 +143,15 @@ class Car:
                 self._steering_angle = 0
                 self._collision_end_time = now2 + 1000
 
-        #Car to car :p
         if all_cars:
             for other in all_cars:
-                if other is self or other.is_in_collision():
+                if other is self or other._is_in_collision():
                     continue
                 if self._hitbox.colliderect(other._hitbox):
-                    # Recoil
                     impact_speed = abs(self._velocity)
                     self._velocity = -impact_speed * getattr(self, '_recoil_factor', 0.5)
                     self._steering_angle = 0
                     self._collision_end_time = now + 1000
-                    # Stun 
                     other._velocity = 0
                     other._steering_angle = 0
                     other._collision_end_time = now + 1000
@@ -195,7 +194,7 @@ class Car:
         else:
             screen.blit(self._image, self._rect)
         
-    def get_position(self):
+    def _get_position(self):
         return (self._x, self._y)
     
     def reset(self, x, y):
@@ -209,87 +208,99 @@ class Car:
         self._hitbox.center = (x, y)
         self._image = self._original_image
 
-    def is_in_collision(self):
+    def _is_in_collision(self):
         return pygame.time.get_ticks() < self._collision_end_time
     
-    def get_observations(self, game):
-        x, y = self.get_position()
+    def get_observation(self):
+        x, y = self._get_position()
         gx = int(x // CELL_SIZE)
         gy = int(y // CELL_SIZE)
     
         obs = {}
+        obs['x'] = x
+        obs['y'] = y
         obs['angle_degrees'] = float(getattr(self, '_angle', 0.0))
         obs['steering_angle'] = float(getattr(self, '_steering_angle', 0.0))
         obs['speed'] = float(getattr(self, '_velocity', 0.0))
-        obs['track_coords'] = getTrackRecords(self)
-        obs['lap_progress'] = get_lap_progress(game, self._uni_index)
-        obs['lap_number'] = get_lap_number(game, self._uni_index)
-        lap_times, current = get_lap_timings(game, self._uni_index)
+        obs['track_coords'] = self._getTrackRecords()
+        obs['lap_progress'] = self._get_lap_progress()
+        obs['lap_number'] = self._get_lap_number()
+        lap_times, current = self._get_lap_timings()
         obs['lap_times'] = lap_times
         obs['current_lap_time'] = current
         return obs
+    
+    def steer_right(self):
+        self._steer(10)
+    
+    def steer_left(self):
+        self._steer(-10)
+    
+    def accelerate_fwd(self):
+        self._accelerate(1.0)
+    
+    def accelerate_bck(self):
+        self._accelerate(-1.0)
 
-def get_lap_timings(game, carID):
-    lap_times = list([] if carID not in game.lap_times else game.lap_times[carID])
-    start = None if carID not in game.lap_start_time else game.lap_start_time[carID]
-    if start is None:
-        current = 0.0
-    else:
-        current = (pygame.time.get_ticks() - start) / 1000.0
-    return lap_times, current
+    def _get_lap_timings(self):
+        lap_times = list([] if self._uni_index not in self._game._lap_times else self._game._lap_times[self._uni_index])
+        start = None if self._uni_index not in self._game._lap_start_time else self._game._lap_start_time[self._uni_index]
+        if start is None:
+            current = 0.0
+        else:
+            current = (pygame.time.get_ticks() - start) / 1000.0
+        return lap_times, current
 
-def get_lap_number(game, carID):
-    return int(0 if carID not in game.laps_completed else game.laps_completed[carID]) + 1
+    def _get_lap_number(self):
+        return int(0 if self._uni_index not in self._game._laps_completed else self._game._laps_completed[self._uni_index]) + 1
 
-def getTrackRecords(car):
-        x, y = car.get_position()
+    def _getTrackRecords(self):
+        x, y = self._get_position()
         gx = int(x // CELL_SIZE)
         gy = int(y // CELL_SIZE)
         return (gx, gy)
 
-def _checkpoint_centroid(track, cid):
-    cells = track.checkpoints.get(cid)
-    if not cells:
-        return None
-    sx = 0.0
-    sy = 0.0
-    for (cx, cy) in cells:
-        sx += (cx * CELL_SIZE + CELL_SIZE / 2.0)
-        sy += (cy * CELL_SIZE + CELL_SIZE / 2.0)
-    n = len(cells)
-    return (sx / n, sy / n)
+    def _checkpoint_centroid(self, cid):
+        cells = self._track.checkpoints.get(cid)
+        if not cells:
+            return None
+        sx = 0.0
+        sy = 0.0
+        for (cx, cy) in cells:
+            sx += (cx * CELL_SIZE + CELL_SIZE / 2.0)
+            sy += (cy * CELL_SIZE + CELL_SIZE / 2.0)
+        n = len(cells)
+        return (sx / n, sy / n)
 
-def get_lap_progress(game, carID):
-    track = game.track
-    total = len(track.checkpoints) if track.checkpoints else 0
-    if total == 0:
-        return 0.0
-    collected = set() if carID not in game.checkpoints_collected else game.checkpoints_collected[carID]
-    now = None
-    completed = len(collected)
-    if completed >= total:
-        return 1.0
-    prev_id = 0
-    if collected:
-        prev_id = max(collected)
+    def _get_lap_progress(self):
+        total = len(self._track.checkpoints) if self._track.checkpoints else 0
+        if total == 0:
+            return 0.0
+        collected = set() if self._uni_index not in self._game._checkpoints_collected else self._game._checkpoints_collected[self._uni_index]
+        now = None
+        completed = len(collected)
+        if completed >= total:
+            return 1.0
+        prev_id = 0
+        if collected:
+            prev_id = max(collected)
 
-    if prev_id == 0:
-        start_x, start_y = track.get_start_position()
-        prev_pos = (start_x + carID * CAR_GAP, start_y)
-    else:
-        prev_pos = _checkpoint_centroid(track, prev_id)
+        if prev_id == 0:
+            start_x, start_y = self._track.get_start_position()
+            prev_pos = (start_x + self._uni_index * CAR_GAP, start_y)
+        else:
+            prev_pos = self._checkpoint_centroid(prev_id)
 
-
-    next_id = prev_id + 1 if prev_id < total else 1
-    next_pos = _checkpoint_centroid(track, next_id)
-    if not prev_pos or not next_pos:
-        return float(completed) / float(total)
-    car_x, car_y = game.cars[carID].get_position()
-    dist_total = math.hypot(next_pos[0] - prev_pos[0], next_pos[1] - prev_pos[1])
-    if dist_total <= 0.0:
-        frac = 0.0
-    else:
-        dist_to_car = math.hypot(car_x - prev_pos[0], car_y - prev_pos[1])
-        frac = max(0.0, min(1.0, dist_to_car / dist_total))
-    progress = (float(prev_id) + frac) / float(total)
-    return max(0.0, min(1.0, progress))
+        next_id = prev_id + 1 if prev_id < total else 1
+        next_pos = self._checkpoint_centroid(next_id)
+        if not prev_pos or not next_pos:
+            return float(completed) / float(total)
+        car_x, car_y = self._get_position()
+        dist_total = math.hypot(next_pos[0] - prev_pos[0], next_pos[1] - prev_pos[1])
+        if dist_total <= 0.0:
+            frac = 0.0
+        else:
+            dist_to_car = math.hypot(car_x - prev_pos[0], car_y - prev_pos[1])
+            frac = max(0.0, min(1.0, dist_to_car / dist_total))
+        progress = (float(prev_id) + frac) / float(total)
+        return max(0.0, min(1.0, progress))

@@ -1,15 +1,15 @@
 def forward(car):
-    car.accelerate(1.0)
+    car.accelerate_fwd()
 
 def back(car):
-    car.accelerate(-1.0)
+    car.accelerate_bck()
 
-def steer_right(car, amount=10):
-    car.steer(amount)
+def steer_right(car):
+    car.steer_right()
 
-def steer_left(car, amount=10):
-    car.steer(-amount)
-
-def brake(car, strength=0.6):
-    car.brake(strength)
-
+def steer_left(car):
+    car.steer_left()
+def brake(car):
+    car.brake()
+def boost(car):
+    car.request_boost()
