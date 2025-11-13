@@ -10,3 +10,5 @@ def brake(car):
     car.brake()
 def boost(car):
     car.request_boost()
+def reset(car):
+    car.reset()

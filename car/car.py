@@ -194,7 +194,7 @@ class Car:
         else:
             screen.blit(self._image, self._rect)
         
-    def _get_position(self):
+    def get_position(self):
         return (self._x, self._y)
     
     def reset(self, x, y):
@@ -212,7 +212,7 @@ class Car:
         return pygame.time.get_ticks() < self._collision_end_time
     
     def get_observation(self):
-        x, y = self._get_position()
+        x, y = self.get_position()
         gx = int(x // CELL_SIZE)
         gy = int(y // CELL_SIZE)
     
@@ -228,6 +228,7 @@ class Car:
         lap_times, current = self._get_lap_timings()
         obs['lap_times'] = lap_times
         obs['current_lap_time'] = current
+        obs['all_coords'] = self._game.all_coords(self._uni_index)
         return obs
     
     def steer_right(self):
@@ -255,7 +256,7 @@ class Car:
         return int(0 if self._uni_index not in self._game._laps_completed else self._game._laps_completed[self._uni_index]) + 1
 
     def _getTrackRecords(self):
-        x, y = self._get_position()
+        x, y = self.get_position()
         gx = int(x // CELL_SIZE)
         gy = int(y // CELL_SIZE)
         return (gx, gy)
@@ -295,7 +296,7 @@ class Car:
         next_pos = self._checkpoint_centroid(next_id)
         if not prev_pos or not next_pos:
             return float(completed) / float(total)
-        car_x, car_y = self._get_position()
+        car_x, car_y = self.get_position()
         dist_total = math.hypot(next_pos[0] - prev_pos[0], next_pos[1] - prev_pos[1])
         if dist_total <= 0.0:
             frac = 0.0

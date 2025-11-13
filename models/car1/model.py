@@ -1,5 +1,5 @@
 import pygame
-from env.controls import forward, back, steer_right, steer_left, brake, boost
+from env.controls import forward, back, steer_right, steer_left, brake, boost, reset
 
 def model(car):
     keys = pygame.key.get_pressed()
@@ -8,6 +8,7 @@ def model(car):
         forward(car)
     if keys[pygame.K_s]:
         back(car)
+        print(car.get_observation()["all_coords"])
     if keys[pygame.K_d]:
         steer_right(car)
     if keys[pygame.K_a]:

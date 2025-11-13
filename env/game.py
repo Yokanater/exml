@@ -113,3 +113,8 @@ class F1Game:
             self._clock.tick(self._fps)
         
         pygame.quit()
+    def all_coords(self, idx):
+        to_ret = [c.get_position() for c in self._cars]
+        to_ret.pop(idx)
+        return to_ret
+
