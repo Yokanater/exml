@@ -209,7 +209,7 @@ class Car:
         self._image = self._original_image
 
     def _is_in_collision(self):
-        return pygame.time.get_ticks() < self._collision_end_time
+        return (pygame.time.get_ticks() < self._collision_end_time) or self._track.check_collision(self._x, self._y)
     
     def get_observation(self):
         x, y = self.get_position()
@@ -228,6 +228,7 @@ class Car:
         lap_times, current = self._get_lap_timings()
         obs['lap_times'] = lap_times
         obs['current_lap_time'] = current
+        obs['collided'] = bool(self._is_in_collision())
         obs['all_coords'] = self._game.all_coords(self._uni_index)
         return obs
     
