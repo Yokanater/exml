@@ -5,8 +5,8 @@ from env.constants import CELL_SIZE, CAR_GAP
 
 class Car:
     def __init__(self, x, y, image_path, uni, start_x, start_y, game, track):
-        startX = start_x
-        starty = start_y
+        self.startX = start_x
+        self.startY = start_y
         self._uni_index = uni
         self._game = game
         self._track = track
@@ -197,15 +197,15 @@ class Car:
     def get_position(self):
         return (self._x, self._y)
     
-    def reset(self, x, y):
-        self._x = x
-        self._y = y
+    def reset(self):
+        self._x = self.startX
+        self._y = self.startY
         self._velocity = 0
         self._angle = 0
         self._steering_angle = 0
         self._collision_end_time = 0
-        self._rect.center = (x, y)
-        self._hitbox.center = (x, y)
+        self._rect.center = (self.startX, self.startY)
+        self._hitbox.center = (self.startX, self.startY)
         self._image = self._original_image
 
     def _is_in_collision(self):
