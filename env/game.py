@@ -7,7 +7,7 @@ from env.camera import Camera
 import os
 
 class F1Game:
-    def __init__(self):
+    def __init__(self, model_dirs=None):
         pygame.init()
         self._track = Track()
         info = pygame.display.Info()
@@ -20,9 +20,12 @@ class F1Game:
         self._fps = 60
 
         self._cars = []
-        model_dirs = [d for d in os.listdir('models') if os.path.isdir(os.path.join('models', d))]
+        if model_dirs is None:
+            model_dirs = [d for d in os.listdir('models') if os.path.isdir(os.path.join('models', d))]
+        self._model_dirs = list(model_dirs)
+
         spawn_positions = self._track.get_start_positions()
-        for idx, model_dir in enumerate(model_dirs):
+        for idx, model_dir in enumerate(self._model_dirs):
             if spawn_positions:
                 sx, sy = spawn_positions[idx % len(spawn_positions)]
             else:
@@ -52,7 +55,7 @@ class F1Game:
         self._lap_start_time = {}
         self._lap_times = {}
         self._next_checkpoint = {}
-        for idx, model in enumerate(model_dirs):
+        for idx, model in enumerate(self._model_dirs):
             self._checkpoints_collected[idx] = set()
             self._laps_completed[idx] = 0
             self._lap_start_time[idx] = pygame.time.get_ticks()

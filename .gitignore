@@ -3,3 +3,14 @@ car/__pycache__
 .vscode/
 /__pycache__
 **.pyc
+
+venv/
+.venv/
+scripts/
+data/
+documentation*
+
+# Ignore all models except final_model
+models/*
+!models/final_model/
+!models/final_model/**/*
